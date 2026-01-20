@@ -2,10 +2,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ProRoute from "./routes/ProRoutes";
+import Users from "./pages/User"
+import Roles from "./pages/Roles"
 import './App.css';
 
-const Users = () => <h1 className="p-6">Users Page</h1>;
-const Roles = () => <h1 className="p-6">Roles Page</h1>;
+// const Users = () => <h1 className="p-6">Users Page</h1>;
+// const Roles = () => <h1 className="p-6">Roles Page</h1>;
 const Welcome = () => <h1 className="p-6">Welcome User</h1>;
 
 function App() {
