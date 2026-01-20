@@ -8,8 +8,10 @@ const connectDB = require("./config/db");
 const User = require("./models/User");
 const Role = require("./models/Role");
 const authRoutes = require("./routes/authRoutes");
+const roleRoutes = require("./routes/roleRoutes");
+const userRoutes = require("./routes/userRoutes");
 
-// routes
+
 
 const app = express();
 
@@ -20,7 +22,10 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
+// routes
 app.use("/api/auth", authRoutes);
+app.use("/api/roles", roleRoutes);
+app.use("/api/users", userRoutes);
 
 // Test route
 app.get("/", (req, res) => {
