@@ -1,36 +1,57 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import ProRoute from "./routes/ProRoutes";
+import './App.css';
+
+const Users = () => <h1 className="p-6">Users Page</h1>;
+const Roles = () => <h1 className="p-6">Roles Page</h1>;
+const Welcome = () => <h1 className="p-6">Welcome User</h1>;
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <h1 class="text-3xl font-bold text-blue-900 underline">Hello world!</h1>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+
+        <Route
+          path="/dashboard"
+          element={
+            <ProRoute allowedRoles={["Admin"]}>
+              <Dashboard />
+            </ProRoute>
+          }
+        />
+
+        <Route
+          path="/users"
+          element={
+            <ProRoute allowedRoles={["Admin"]}>
+              <Users />
+            </ProRoute>
+          }
+        />
+
+        <Route
+          path="/roles"
+          element={
+            <ProRoute allowedRoles={["Admin"]}>
+              <Roles />
+            </ProRoute>
+          }
+        />
+
+        <Route
+          path="/welcome"
+          element={
+            <ProRoute>
+              <Welcome />
+            </ProRoute>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
-export default App
+export default App;
