@@ -39,8 +39,16 @@ const login = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "1d" },
     );
+    
+    // Collect permissions from roles
+    let permissions = [];
 
-    // 6. Response
+    user.roles.forEach((role) => {
+      if (role.status === "Active") {
+        permissions.push(...role.permissions);
+      }
+    });
+
     res.json({
       token,
       user: {
@@ -48,6 +56,7 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         roles: user.roles.map((role) => role.name),
+        permissions,
       },
     });
   } catch (error) {

@@ -24,7 +24,7 @@ const Login = () => {
       if (data.user.roles.includes("Admin")) {
         navigate("/dashboard");
       } else {
-        navigate("/welcome");
+        navigate("/home");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");

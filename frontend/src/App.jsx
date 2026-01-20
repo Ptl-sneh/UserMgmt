@@ -2,13 +2,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ProRoute from "./routes/ProRoutes";
-import Users from "./pages/User"
-import Roles from "./pages/Roles"
-import './App.css';
+import Users from "./pages/User";
+import Roles from "./pages/Roles";
+import Home from "./pages/Home";
+import "./App.css";
 
-// const Users = () => <h1 className="p-6">Users Page</h1>;
-// const Roles = () => <h1 className="p-6">Roles Page</h1>;
-const Welcome = () => <h1 className="p-6">Welcome User</h1>;
 
 function App() {
   return (
@@ -26,9 +24,18 @@ function App() {
         />
 
         <Route
+          path="/home"
+          element={
+            <ProRoute>
+              <Home />
+            </ProRoute>
+          }
+        />
+
+        <Route
           path="/users"
           element={
-            <ProRoute allowedRoles={["Admin"]}>
+            <ProRoute requiredPermission="USER_VIEW">
               <Users />
             </ProRoute>
           }
@@ -37,17 +44,8 @@ function App() {
         <Route
           path="/roles"
           element={
-            <ProRoute allowedRoles={["Admin"]}>
+            <ProRoute requiredPermission="ROLE_VIEW">
               <Roles />
-            </ProRoute>
-          }
-        />
-
-        <Route
-          path="/welcome"
-          element={
-            <ProRoute>
-              <Welcome />
             </ProRoute>
           }
         />
