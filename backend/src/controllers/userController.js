@@ -38,7 +38,7 @@ const createUser = async (req, res) => {
 const getUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 2;
+    const limit = Number(req.query.limit) || 4;
     const skip = (page - 1) * limit;
 
     const search = req.query.search || "";

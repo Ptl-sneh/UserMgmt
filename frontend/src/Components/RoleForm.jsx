@@ -9,14 +9,14 @@ const ALL_PERMISSIONS = [
   "ROLE_VIEW",
   "ROLE_CREATE",
   "ROLE_EDIT",
-  "ROLE_DELETE"
+  "ROLE_DELETE",
 ];
 
 const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: "",
     permissions: [],
-    status: "Active"
+    status: "Active",
   });
 
   useEffect(() => {
@@ -26,11 +26,11 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   }, [initialData]);
 
   const togglePermission = (perm) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       permissions: prev.permissions.includes(perm)
-        ? prev.permissions.filter(p => p !== perm)
-        : [...prev.permissions, perm]
+        ? prev.permissions.filter((p) => p !== perm)
+        : [...prev.permissions, perm],
     }));
   };
 
@@ -40,69 +40,118 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   };
 
   return (
-    <div className="bg-white border p-6 rounded mb-6">
-      <h2 className="text-lg font-semibold mb-4">
-        {initialData ? "Edit Role" : "Create Role"}
-      </h2>
+    <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          className="border p-2 w-full"
-          placeholder="Role name"
-          value={formData.name}
-          onChange={(e) =>
-            setFormData({ ...formData, name: e.target.value })
-          }
-          required
-          disabled={!!initialData}
-        />
+      {/* Header */}
+      <div className="px-8 py-6 border-b bg-slate-50">
+        <h2 className="text-2xl font-extrabold text-slate-900">
+          {initialData ? "Edit Role" : "Create Role"}
+        </h2>
+        <p className="text-slate-500 mt-1">
+          {initialData
+            ? "Update role details and permissions"
+            : "Define a role and assign permissions"}
+        </p>
+      </div>
 
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="p-8 space-y-8">
+
+        {/* Role Name */}
         <div>
-          <p className="font-medium mb-2">Permissions</p>
-          <div className="grid grid-cols-2 gap-2">
-            {ALL_PERMISSIONS.map(p => (
-              <label key={p} className="flex gap-2 text-sm">
+          <label className="block text-sm font-semibold text-slate-700 mb-1">
+            Role Name
+          </label>
+          <input
+            type="text"
+            placeholder="Admin, Manager, Viewer..."
+            value={formData.name}
+            onChange={(e) =>
+              setFormData({ ...formData, name: e.target.value })
+            }
+            disabled={!!initialData}
+            className="w-full px-4 py-3 rounded-xl border border-slate-200
+            focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500 transition
+            disabled:bg-slate-100 disabled:cursor-not-allowed"
+            required
+          />
+          {initialData && (
+            <p className="text-xs text-slate-500 mt-1">
+              Role name cannot be changed
+            </p>
+          )}
+        </div>
+
+        {/* Permissions */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
+            Permissions
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {ALL_PERMISSIONS.map((perm) => (
+              <label
+                key={perm}
+                className="flex items-center gap-3 p-3 rounded-xl
+                border border-slate-200 hover:border-indigo-300 transition cursor-pointer"
+              >
                 <input
                   type="checkbox"
-                  checked={formData.permissions.includes(p)}
-                  onChange={() => togglePermission(p)}
+                  checked={formData.permissions.includes(perm)}
+                  onChange={() => togglePermission(perm)}
+                  className="w-4 h-4 text-indigo-600 rounded"
                 />
-                {p}
+                <span className="text-sm font-medium text-slate-700">
+                  {perm}
+                </span>
               </label>
             ))}
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <label>
-            <input
-              type="radio"
-              checked={formData.status === "Active"}
-              onChange={() =>
-                setFormData({ ...formData, status: "Active" })
-              }
-            /> Active
+        {/* Status */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
+            Status
           </label>
-
-          <label>
-            <input
-              type="radio"
-              checked={formData.status === "Inactive"}
-              onChange={() =>
-                setFormData({ ...formData, status: "Inactive" })
-              }
-            /> Inactive
-          </label>
+          <div className="flex gap-4">
+            {["Active", "Inactive"].map((status) => (
+              <label
+                key={status}
+                className="flex items-center gap-3 p-3 rounded-xl
+                border border-slate-200 hover:border-indigo-300 transition cursor-pointer"
+              >
+                <input
+                  type="radio"
+                  name="status"
+                  value={status}
+                  checked={formData.status === status}
+                  onChange={() =>
+                    setFormData({ ...formData, status })
+                  }
+                  className="w-4 h-4 text-indigo-600"
+                />
+                <span className="text-sm font-medium text-slate-700">
+                  {status}
+                </span>
+              </label>
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded">
-            Save
+        {/* Actions */}
+        <div className="flex gap-4 pt-6 border-t">
+          <button
+            type="submit"
+            className="flex-1 py-3 rounded-xl bg-indigo-600 text-white
+            font-semibold shadow-lg hover:bg-indigo-500 transition"
+          >
+            {initialData ? "Update Role" : "Create Role"}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="border px-4 py-2 rounded"
+            className="flex-1 py-3 rounded-xl border border-slate-300
+            text-slate-700 font-semibold hover:bg-slate-50 transition"
           >
             Cancel
           </button>
