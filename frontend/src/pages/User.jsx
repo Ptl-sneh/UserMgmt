@@ -16,16 +16,29 @@ const Users = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [editingUser, setEditingUser] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState("desc");
 
   const loadUsers = async () => {
-    const res = await fetchUsers({ page, search });
+    const res = await fetchUsers({
+      page,
+      search,
+      status: statusFilter,
+      sortBy,
+      order: sortOrder,
+    });
     setUsers(res.data.users);
     setTotalPages(res.data.totalPages);
   };
 
   useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sortBy, sortOrder]);
+
+  useEffect(() => {
     loadUsers();
-  }, [page, search]);
+  }, [page, search, statusFilter, sortBy, sortOrder]);
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this user?")) {
@@ -95,18 +108,53 @@ const Users = () => {
             </div>
           </div>
 
-          {/* Search */}
-          <div className="mb-8">
+          {/* Search and Filter */}
+          <div className="mb-8 flex flex-col md:flex-row gap-4">
             <input
               type="text"
               placeholder="Search by name or email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full md:max-w-md px-5 py-4 rounded-2xl
+              className="flex-1 md:max-w-md px-5 py-4 rounded-2xl
               border border-slate-200 bg-white
               focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
               transition"
             />
+
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
+              focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
+              transition font-semibold"
+            >
+              <option value="">All Users</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
+              focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
+              transition font-semibold"
+            >
+              <option value="createdAt">Created Date</option>
+              <option value="name">Name</option>
+              <option value="email">Email</option>
+              <option value="status">Status</option>
+            </select>
+
+            <button
+              onClick={() =>
+                setSortOrder(sortOrder === "desc" ? "asc" : "desc")
+              }
+              className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
+              hover:bg-slate-50 font-semibold transition"
+            >
+              {sortOrder === "desc" ? "↓ Desc" : "↑ Asc"}
+            </button>
           </div>
 
           {/* Modal */}
@@ -174,7 +222,7 @@ const Users = () => {
                     <td className="px-6 py-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          user.status === "active"
+                          user.status === "Active"
                             ? "bg-emerald-100 text-emerald-700"
                             : "bg-slate-200 text-slate-600"
                         }`}

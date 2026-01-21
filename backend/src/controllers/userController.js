@@ -12,7 +12,10 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Required fields missing" });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({
+      email,
+      isDeleted: false,
+    });
     if (existingUser) {
       return res.status(400).json({ message: "Email already exists" });
     }
@@ -34,7 +37,7 @@ const createUser = async (req, res) => {
   }
 };
 
-// GET USERS (Pagination + Search + Sorting)
+// GET USERS (Pagination + Search + Sorting + Status Filter)
 const getUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -44,10 +47,17 @@ const getUsers = async (req, res) => {
     const search = req.query.search || "";
     const sortBy = req.query.sortBy || "createdAt";
     const order = req.query.order === "asc" ? 1 : -1;
+    const statusFilter = req.query.status || ""; // New status filter parameter
 
     const query = {
+      isDeleted: false,
       name: { $regex: search, $options: "i" },
     };
+
+    // Add status filter to query if provided
+    if (statusFilter && statusFilter.toLowerCase() !== "all") {
+      query.status = statusFilter;
+    }
 
     const users = await User.find(query)
       .populate("roles")
@@ -71,7 +81,10 @@ const getUsers = async (req, res) => {
 // GET SINGLE USER
 const getUserById = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).populate("roles");
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).populate("roles");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
@@ -107,11 +120,14 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
-    if (!user) {
+    if (!user || user.isDeleted) {
       return res.status(404).json({ message: "User not found" });
     }
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    user.status = "Inactive";
+    await user.save();
 
-    await user.deleteOne();
     res.json({ message: "User deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Server error" });

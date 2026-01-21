@@ -11,16 +11,20 @@ import { hasPermission } from "../Components/Permissions";
 
 const Roles = () => {
   const [roles, setRoles] = useState([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [editingRole, setEditingRole] = useState(null);
 
   const loadRoles = async () => {
-    const res = await fetchRoles();
-    setRoles(res.data);
+    const res = await fetchRoles({ page, search });
+    setRoles(res.data.roles);
+    setTotalPages(res.data.totalPages);
   };
 
   useEffect(() => {
     loadRoles();
-  }, []);
+  }, [page, search]);
 
   const handleCreate = async (data) => {
     await createRole(data);
@@ -64,6 +68,23 @@ const Roles = () => {
                 Add Role
               </button>
             )}
+          </div>
+
+          {/* Search */}
+          <div className="mb-8">
+            <input
+              type="text"
+              placeholder="Search by role name..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full md:max-w-md px-5 py-4 rounded-2xl
+              border border-slate-200 bg-white
+              focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
+              transition"
+            />
           </div>
 
           {/* Modal */}
@@ -171,6 +192,31 @@ const Roles = () => {
                   ))}
                 </tbody>
               </table>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-between items-center px-6 py-4 bg-slate-100">
+                  <span className="font-semibold text-slate-700">
+                    Page {page} of {totalPages}
+                  </span>
+                  <div className="flex gap-3">
+                    <button
+                      disabled={page === 1}
+                      onClick={() => setPage(page - 1)}
+                      className="px-4 py-2 rounded-lg border disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      disabled={page === totalPages}
+                      onClick={() => setPage(page + 1)}
+                      className="px-4 py-2 rounded-lg border disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             /* Empty State */

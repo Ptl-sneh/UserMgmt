@@ -8,8 +8,8 @@ const getAuthHeader = () => ({
   }
 });
 
-export const fetchRoles = () =>
-  axios.get(API_URL, getAuthHeader());
+export const fetchRoles = (params) =>
+  axios.get(API_URL, { ...getAuthHeader(), params });
 
 export const createRole = (data) =>
   axios.post(API_URL, data, getAuthHeader());

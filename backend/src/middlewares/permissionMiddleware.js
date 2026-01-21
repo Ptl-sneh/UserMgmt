@@ -16,7 +16,7 @@ const checkPermission = (requiredPermission) => {
       let permissions = [];
 
       user.roles.forEach((role) => {
-        if (role.status === "Active") {
+        if (role.status === "Active" && !role.isDeleted) {
           permissions.push(...role.permissions);
         }
       });
