@@ -1,0 +1,33 @@
+JSON data for testing creating user api in postman
+
+{
+    "name" : "gg",
+    "email": "gg@gmail.com",
+    "password": "$2b$10$6eOAn1qDKhfQCp2C3n32pebjPlpZv/SXeuLSN5jrqsqPFRUoB1dH2",
+    "status" : "Active",
+    "roles" : ["696ecaa2a832e9335e8bacbd"],
+    "hobbies" : ["Gaming"]
+}
+
+
+url for testing delete api http://localhost:5000/api/users/696ed292a832e9335e8bacc6
+
+admin@example.com
+admin123
+
+s@gmail.com
+s123
+
+JSON data for testing creating role api in postman
+
+{
+    "name" : "Analyst",
+    "permissions" : ["USER_VIEW"],
+    "status": "Active" 
+}
+
+
+bcryptjs
+
+const bcrypt = require('bcryptjs');
+bcrypt.hashSync('gg123', 10);
