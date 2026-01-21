@@ -68,6 +68,19 @@ const Users = () => {
     loadUsers();
   };
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (editingUser) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [editingUser]);
+
   return (
     <AdminLayout>
       <div className="min-h-screen bg-slate-50">
@@ -84,7 +97,7 @@ const Users = () => {
             <div className="flex gap-3">
               {hasPermission("USER_CREATE") && (
                 <button
-                  onClick={() => setEditingUser({})}
+                  onClick={() => setEditingUser("create")}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
                   bg-indigo-600 text-white font-semibold
                   hover:bg-indigo-500 hover:scale-[1.02]
@@ -159,21 +172,24 @@ const Users = () => {
 
           {/* Modal */}
           {editingUser && (
-            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto">
-              {/* Overlay */}
+            <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
+              {/* Overlay - IMPORTANT: Add pointer-events-none to container */}
               <div
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm"
                 onClick={() => setEditingUser(null)}
               />
 
-              {/* Modal Container */}
-              <div className="relative w-full max-w-4xl my-10 mx-4">
+              {/* Modal Container - IMPORTANT: Prevent click from bubbling */}
+              <div 
+                className="relative w-full max-w-4xl my-10 mx-4 z-60"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-hidden">
                   {/* Scrollable Content */}
                   <div className="max-h-[90vh] overflow-y-auto p-8">
                     <UserForm
-                      initialData={editingUser._id ? editingUser : null}
-                      onSubmit={editingUser._id ? handleUpdate : handleCreate}
+                      initialData={editingUser !== "create" ? editingUser : null}
+                      onSubmit={editingUser !== "create" ? handleUpdate : handleCreate}
                       onCancel={() => setEditingUser(null)}
                     />
                   </div>

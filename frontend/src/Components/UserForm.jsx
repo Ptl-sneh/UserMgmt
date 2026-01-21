@@ -12,6 +12,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
   });
 
   const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(false);
 
   const hobbiesOptions = [
     { value: "music", label: "Music" },
@@ -21,18 +22,56 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
   ];
 
   useEffect(() => {
-    if (initialData) {
+    if (initialData && initialData._id) {
       setFormData({
-        ...initialData,
+        name: initialData.name || "",
+        email: initialData.email || "",
+        password: "", // Don't populate password for security
         roles: initialData.roles?.map((r) => r._id) || [],
+        hobbies: initialData.hobbies || [],
+        status: initialData.status || "Active",
+      });
+    } else if (initialData === null || initialData === undefined) {
+      // Reset form for create mode
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        roles: [],
+        hobbies: [],
+        status: "Active",
       });
     }
   }, [initialData]);
 
   useEffect(() => {
     const loadRoles = async () => {
-      const res = await fetchRoles();
-      setRoles(res.data);
+      try {
+        setLoading(true);
+        const res = await fetchRoles();
+        // Handle different possible response structures
+        if (res && res.data) {
+          // Check if data is an array or if it contains an array
+          if (Array.isArray(res.data)) {
+            setRoles(res.data);
+          } else if (res.data.roles && Array.isArray(res.data.roles)) {
+            setRoles(res.data.roles);
+          } else if (res.data.data && Array.isArray(res.data.data)) {
+            setRoles(res.data.data);
+          } else {
+            console.error("Unexpected roles response structure:", res);
+            setRoles([]);
+          }
+        } else {
+          console.error("No data in roles response:", res);
+          setRoles([]);
+        }
+      } catch (error) {
+        console.error("Error loading roles:", error);
+        setRoles([]);
+      } finally {
+        setLoading(false);
+      }
     };
     loadRoles();
   }, []);
@@ -138,25 +177,35 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-semibold text-slate-700 mb-3">
             Roles
           </label>
-          <div className="grid md:grid-cols-2 gap-3">
-            {roles.map((role) => (
-              <label
-                key={role._id}
-                className="flex items-center gap-3 p-3 rounded-xl
+          {loading ? (
+            <div className="text-center py-4 text-slate-500">
+              Loading roles...
+            </div>
+          ) : !Array.isArray(roles) || roles.length === 0 ? (
+            <div className="text-center py-4 text-slate-500">
+              No roles available
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-3">
+              {roles.map((role) => (
+                <label
+                  key={role._id || role.id}
+                  className="flex items-center gap-3 p-3 rounded-xl
                 border border-slate-200 hover:border-indigo-300 transition cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={formData.roles.includes(role._id)}
-                  onChange={() => handleCheckboxChange("roles", role._id)}
-                  className="w-4 h-4 text-indigo-600 rounded"
-                />
-                <span className="text-sm font-medium text-slate-700">
-                  {role.name}
-                </span>
-              </label>
-            ))}
-          </div>
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.roles.includes(role._id || role.id)}
+                    onChange={() => handleCheckboxChange("roles", role._id || role.id)}
+                    className="w-4 h-4 text-indigo-600 rounded"
+                  />
+                  <span className="text-sm font-medium text-slate-700">
+                    {role.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Hobbies */}
