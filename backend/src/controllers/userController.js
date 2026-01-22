@@ -7,28 +7,31 @@ const { Parser } = require("json2csv");
 const validateUserData = (data, isUpdate = false) => {
   const errors = {};
 
-  // Name validation
+  /* NAME VALIDATION */
   if (!data.name || data.name.trim().length === 0) {
     errors.name = "Name is required";
   } else if (data.name.trim().length < 2) {
     errors.name = "Name must be at least 2 characters long";
   } else if (data.name.trim().length > 50) {
     errors.name = "Name must not exceed 50 characters";
+  } else if (!/^[A-Za-z\s]+$/.test(data.name.trim())) {
+    errors.name = "Name must contain only alphabets and spaces";
   }
 
-  // Email validation
+  /* EMAIL VALIDATION  */
   if (!isUpdate) {
     if (!data.email || data.email.trim().length === 0) {
       errors.email = "Email is required";
     } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(data.email)) {
+      const emailRegex =
+        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      if (!emailRegex.test(data.email.trim())) {
         errors.email = "Please enter a valid email address";
       }
     }
   }
 
-  // Password validation (only for create)
+  /* PASSWORD VALIDATION  */
   if (!isUpdate) {
     if (!data.password || data.password.length === 0) {
       errors.password = "Password is required";
@@ -36,26 +39,51 @@ const validateUserData = (data, isUpdate = false) => {
       errors.password = "Password must be at least 6 characters long";
     } else if (data.password.length > 100) {
       errors.password = "Password must not exceed 100 characters";
+    } else {
+      const passwordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
+
+      if (!passwordRegex.test(data.password)) {
+        errors.password =
+          "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character";
+      }
     }
   }
 
-  // Roles validation
-  if (data.roles && !Array.isArray(data.roles)) {
-    errors.roles = "Roles must be an array";
+  /* ROLES VALIDATION  */
+  if (data.roles !== undefined) {
+    if (!Array.isArray(data.roles)) {
+      errors.roles = "Roles must be an array";
+    } else if (
+      data.roles.some(
+        (role) => typeof role !== "string" || role.trim().length === 0
+      )
+    ) {
+      errors.roles = "Each role must be a valid non-empty value";
+    }
   }
 
-  // Hobbies validation
-  if (data.hobbies && !Array.isArray(data.hobbies)) {
-    errors.hobbies = "Hobbies must be an array";
+  /* HOBBIES VALIDATION  */
+  if (data.hobbies !== undefined) {
+    if (!Array.isArray(data.hobbies)) {
+      errors.hobbies = "Hobbies must be an array";
+    } else if (
+      data.hobbies.some(
+        (hobby) => typeof hobby !== "string" || hobby.trim().length === 0
+      )
+    ) {
+      errors.hobbies = "Each hobby must be a valid non-empty string";
+    }
   }
 
-  // Status validation
+  /* STATUS VALIDATION  */
   if (data.status && !["Active", "Inactive"].includes(data.status)) {
     errors.status = "Status must be either Active or Inactive";
   }
 
   return errors;
 };
+
 
 // CREATE USER (Admin)
 const createUser = async (req, res) => {

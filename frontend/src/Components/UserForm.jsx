@@ -1,6 +1,48 @@
 import { useState, useEffect } from "react";
 import { fetchRoles } from "../services/RoleService";
 
+const validateForm = (data, isEdit = false) => {
+  const errors = {};
+
+  // Name
+  if (!data.name || !data.name.trim()) {
+    errors.name = "Name is required";
+  } else if (!/^[A-Za-z\s]+$/.test(data.name.trim())) {
+    errors.name = "Name must contain only alphabets and spaces";
+  } else if (data.name.trim().length < 2) {
+    errors.name = "Name must be at least 2 characters long";
+  } else if (data.name.trim().length > 50) {
+    errors.name = "Name must not exceed 50 characters";
+  }
+
+  // Email (create only)
+  if (!isEdit) {
+    if (!data.email || !data.email.trim()) {
+      errors.email = "Email is required";
+    } else if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(data.email.trim())
+    ) {
+      errors.email = "Please enter a valid email address";
+    }
+  }
+
+  // Password (create only)
+  if (!isEdit) {
+    if (!data.password) {
+      errors.password = "Password is required";
+    } else if (
+      !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/.test(
+        data.password
+      )
+    ) {
+      errors.password =
+        "Password must contain uppercase, lowercase, number and special character";
+    }
+  }
+
+  return errors;
+};
+
 const UserForm = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: "",
@@ -23,6 +65,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     { value: "reading", label: "Reading" },
   ];
 
+  /* ================= EFFECTS ================= */
   useEffect(() => {
     if (initialData && initialData._id) {
       setFormData({
@@ -33,7 +76,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
         hobbies: initialData.hobbies || [],
         status: initialData.status || "Active",
       });
-    } else if (initialData === null || initialData === undefined) {
+    } else {
       setFormData({
         name: "",
         email: "",
@@ -43,7 +86,6 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
         status: "Active",
       });
     }
-    // Clear errors when data changes
     setErrors({});
   }, [initialData]);
 
@@ -52,21 +94,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
       try {
         setLoading(true);
         const res = await fetchRoles();
-        if (res && res.data) {
-          if (Array.isArray(res.data)) {
-            setRoles(res.data);
-          } else if (res.data.roles && Array.isArray(res.data.roles)) {
-            setRoles(res.data.roles);
-          } else if (res.data.data && Array.isArray(res.data.data)) {
-            setRoles(res.data.data);
-          } else {
-            console.error("Unexpected roles response structure:", res);
-            setRoles([]);
-          }
-        } else {
-          console.error("No data in roles response:", res);
-          setRoles([]);
-        }
+        setRoles(res?.data?.roles || res?.data || []);
       } catch (error) {
         console.error("Error loading roles:", error);
         setRoles([]);
@@ -77,46 +105,43 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     loadRoles();
   }, []);
 
+  /* ================= HANDLERS ================= */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
-    // Clear error for this field when user starts typing
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: "" });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: "" });
   };
 
   const handleCheckboxChange = (name, value) => {
-    const values = formData[name];
     setFormData({
       ...formData,
-      [name]: values.includes(value)
-        ? values.filter((v) => v !== value)
-        : [...values, value],
+      [name]: formData[name].includes(value)
+        ? formData[name].filter((v) => v !== value)
+        : [...formData[name], value],
     });
-    // Clear error for this field
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: "" });
-    }
+    if (errors[name]) setErrors({ ...errors, [name]: "" });
   };
 
+  /* ================= SUBMIT ================= */
   const submitForm = async () => {
     setIsSubmitting(true);
     setErrors({});
 
+    // FRONTEND VALIDATION
+    const validationErrors = validateForm(formData, !!initialData);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       await onSubmit(formData);
-      // If successful, errors will be cleared and modal will close
     } catch (error) {
-      // Handle validation errors from backend
-      if (error.response && error.response.data && error.response.data.errors) {
+      // BACKEND VALIDATION ERRORS
+      if (error.response?.data?.errors) {
         setErrors(error.response.data.errors);
-      } else if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
-        // Handle general error message
+      } else if (error.response?.data?.message) {
         console.error("Error:", error.response.data.message);
       }
     } finally {
@@ -124,6 +149,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     }
   };
 
+  /* ================= JSX ================= */
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
       {/* Header */}
@@ -138,110 +164,61 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
         </p>
       </div>
 
-      {/* Form */}
       <div className="p-8 space-y-8">
-        {/* Name */}
+        {/* NAME */}
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">
-            Full Name <span className="text-rose-500">*</span>
+          <label className="block text-sm font-semibold mb-1">
+            Full Name *
           </label>
           <input
             name="name"
             value={formData.name}
             onChange={handleChange}
-            placeholder="John Doe"
-            className={`w-full px-4 py-3 rounded-xl border transition
-              ${
-                errors.name
-                  ? "border-rose-500 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "border-slate-200 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500"
-              }`}
+            className={`w-full px-4 py-3 rounded-xl border ${
+              errors.name ? "border-rose-500" : "border-slate-200"
+            }`}
           />
           {errors.name && (
-            <p className="mt-1 text-sm text-rose-600 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {errors.name}
-            </p>
+            <p className="text-sm text-rose-600 mt-1">{errors.name}</p>
           )}
         </div>
 
-        {/* Email */}
+        {/* EMAIL */}
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-1">
-            Email Address <span className="text-rose-500">*</span>
+          <label className="block text-sm font-semibold mb-1">
+            Email *
           </label>
           <input
             name="email"
-            type="email"
             value={formData.email}
             onChange={handleChange}
             disabled={!!initialData}
-            placeholder="user@example.com"
-            className={`w-full px-4 py-3 rounded-xl border transition
-              ${
-                errors.email
-                  ? "border-rose-500 focus:ring-rose-500/20 focus:border-rose-500"
-                  : "border-slate-200 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500"
-              }
-              ${initialData ? "disabled:bg-slate-100" : ""}`}
+            className={`w-full px-4 py-3 rounded-xl border ${
+              errors.email ? "border-rose-500" : "border-slate-200"
+            }`}
           />
           {errors.email && (
-            <p className="mt-1 text-sm text-rose-600 flex items-center gap-1">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              {errors.email}
-            </p>
-          )}
-          {initialData && !errors.email && (
-            <p className="text-xs text-slate-500 mt-1">
-              Email cannot be changed
-            </p>
+            <p className="text-sm text-rose-600 mt-1">{errors.email}</p>
           )}
         </div>
 
-        {/* Password */}
+        {/* PASSWORD */}
         {!initialData && (
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-1">
-              Password <span className="text-rose-500">*</span>
+            <label className="block text-sm font-semibold mb-1">
+              Password *
             </label>
             <input
-              name="password"
               type="password"
+              name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
-              className={`w-full px-4 py-3 rounded-xl border transition
-                ${
-                  errors.password
-                    ? "border-rose-500 focus:ring-rose-500/20 focus:border-rose-500"
-                    : "border-slate-200 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500"
-                }`}
+              className={`w-full px-4 py-3 rounded-xl border ${
+                errors.password ? "border-rose-500" : "border-slate-200"
+              }`}
             />
             {errors.password && (
-              <p className="mt-1 text-sm text-rose-600 flex items-center gap-1">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              <p className="text-sm text-rose-600 mt-1">
                 {errors.password}
               </p>
             )}
@@ -274,7 +251,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
                     }`}
                 >
                   <input
-                    type="checkbox"
+                    type="Checkbox" 
                     checked={formData.roles.includes(role._id || role.id)}
                     onChange={() =>
                       handleCheckboxChange("roles", role._id || role.id)
@@ -356,30 +333,26 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
         </div>
 
-        {/* Actions */}
+        {/* ACTIONS */}
         <div className="flex gap-4 pt-6 border-t">
           <button
             onClick={submitForm}
             disabled={isSubmitting}
-            className="flex-1 py-3 rounded-xl bg-indigo-600 text-white
-            font-semibold shadow-lg hover:bg-indigo-500 transition
-            disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 rounded-xl bg-indigo-600 text-white font-semibold"
           >
             {isSubmitting
               ? initialData
                 ? "Updating..."
                 : "Creating..."
               : initialData
-                ? "Update User"
-                : "Create User"}
+              ? "Update User"
+              : "Create User"}
           </button>
           <button
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="flex-1 py-3 rounded-xl border border-slate-300
-            text-slate-700 font-semibold hover:bg-slate-50 transition
-            disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 py-3 rounded-xl border"
           >
             Cancel
           </button>

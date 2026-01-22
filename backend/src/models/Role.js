@@ -1,5 +1,20 @@
 const mongoose = require("mongoose");
 
+const permissionSchema = new mongoose.Schema({
+  module: {
+    type: String, // USER, ROLE
+    required: true,
+  },
+  actions: {
+    type: [String], // LIST, CREATE, UPDATE, DELETE
+    default: [],
+  },
+  extras: {
+    type: [String], // EXPORT, IMPORT
+    default: [],
+  },
+},{ _id: false });
+
 const roleSchema = new mongoose.Schema(
   {
     name: {
@@ -9,7 +24,7 @@ const roleSchema = new mongoose.Schema(
       trim: true,
     },
     permissions: {
-      type: [String],
+      type: [permissionSchema],
       default: [],
     },
     status: {

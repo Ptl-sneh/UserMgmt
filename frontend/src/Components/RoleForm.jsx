@@ -108,6 +108,51 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
         </div>
 
+        {/* Nested Permissions Section */}
+        <div>
+          <label className="block text-sm font-semibold text-slate-700 mb-3">
+            Nested Permissions
+          </label>
+          
+          <div className="space-y-4 border border-slate-200 rounded-xl p-4">
+            
+            {/* User Module Nested Permissions */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-600 mb-2">User Module</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" />
+                  <span className="text-sm text-slate-700">View Sensitive Data</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" />
+                  <span className="text-sm text-slate-700">Export Data</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" />
+                  <span className="text-sm text-slate-700">Bulk Edit</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Role Module Nested Permissions */}
+            <div>
+              <h4 className="text-sm font-semibold text-slate-600 mb-2">Role Module</h4>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" />
+                  <span className="text-sm text-slate-700">Assign Permissions</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded" />
+                  <span className="text-sm text-slate-700">Clone Role</span>
+                </label>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         {/* Status */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
@@ -161,4 +206,4 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   );
 };
 
-export default RoleForm;
+export default RoleForm; 

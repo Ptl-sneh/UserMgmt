@@ -1,12 +1,32 @@
 const Role = require("../models/Role");
 
+const validatePermissions = (permissions = []) => {
+  if (!Array.isArray(permissions)) return false;
+
+  for (const perm of permissions) {
+    if (!perm.module || typeof perm.module !== "string") return false;
+    if (perm.actions && !Array.isArray(perm.actions)) return false;
+    if (perm.extras && !Array.isArray(perm.extras)) return false;
+  }
+
+  return true;
+};
+
+
 // CREATE ROLE
+
 const createRole = async (req, res) => {
   try {
     const { name, permissions, status } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Role name is required" });
+    }
+
+    if (permissions && !validatePermissions(permissions)) {
+      return res.status(400).json({
+        message: "Invalid permission structure",
+      });
     }
 
     const existingRole = await Role.findOne({
@@ -19,27 +39,26 @@ const createRole = async (req, res) => {
     }
 
     const role = await Role.create({
-      name,
+      name: name.trim(),
       permissions: permissions || [],
       status: status || "Active",
     });
 
     res.status(201).json(role);
   } catch (error) {
+    console.error("Create role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET ALL ROLES (Pagination + Search + Sorting)
+// GET ROLES (Pagination + Search)
+
 const getRoles = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-
     const search = req.query.search || "";
-    const sortBy = req.query.sortBy || "createdAt";
-    const order = req.query.order === "asc" ? 1 : -1;
 
     const query = {
       isDeleted: false,
@@ -47,9 +66,9 @@ const getRoles = async (req, res) => {
     };
 
     const roles = await Role.find(query)
-      .sort({ [sortBy]: order })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .sort({ createdAt: -1 });
 
     const total = await Role.countDocuments(query);
 
@@ -60,11 +79,14 @@ const getRoles = async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
+    console.error("Get roles error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
 // GET ROLE BY ID
+
 const getRoleById = async (req, res) => {
   try {
     const role = await Role.findOne({
@@ -75,13 +97,17 @@ const getRoleById = async (req, res) => {
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
     }
+
     res.json(role);
   } catch (error) {
+    console.error("Get role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
+
 // UPDATE ROLE
+
 const updateRole = async (req, res) => {
   try {
     const { name, permissions, status } = req.body;
@@ -95,18 +121,28 @@ const updateRole = async (req, res) => {
       return res.status(404).json({ message: "Role not found" });
     }
 
-    role.name = name || role.name;
-    role.permissions = permissions || role.permissions;
-    role.status = status || role.status;
+    if (permissions && !validatePermissions(permissions)) {
+      return res.status(400).json({
+        message: "Invalid permission structure",
+      });
+    }
+
+    if (name) role.name = name.trim();
+    if (permissions) role.permissions = permissions;
+    if (status) role.status = status;
 
     await role.save();
+
     res.json(role);
   } catch (error) {
+    console.error("Update role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// DELETE ROLE
+
+// DELETE ROLE (Soft delete)
+
 const deleteRole = async (req, res) => {
   try {
     const role = await Role.findById(req.params.id);
@@ -116,13 +152,14 @@ const deleteRole = async (req, res) => {
     }
 
     role.isDeleted = true;
-    role.deletedAt = new Date();
     role.status = "Inactive";
+    role.deletedAt = new Date();
 
     await role.save();
 
     res.json({ message: "Role deleted successfully" });
   } catch (error) {
+    console.error("Delete role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
