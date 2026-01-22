@@ -19,17 +19,22 @@ const Users = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [isExporting, setIsExporting] = useState(false);
 
   const loadUsers = async () => {
-    const res = await fetchUsers({
-      page,
-      search,
-      status: statusFilter,
-      sortBy,
-      order: sortOrder,
-    });
-    setUsers(res.data.users);
-    setTotalPages(res.data.totalPages);
+    try {
+      const res = await fetchUsers({
+        page,
+        search,
+        status: statusFilter,
+        sortBy,
+        order: sortOrder,
+      });
+      setUsers(res.data.users);
+      setTotalPages(res.data.totalPages);
+    } catch (error) {
+      console.error("Error loading users:", error);
+    }
   };
 
   useEffect(() => {
@@ -42,42 +47,71 @@ const Users = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm("Delete this user?")) {
-      await deleteUser(id);
-      loadUsers();
+      try {
+        await deleteUser(id);
+        loadUsers();
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        alert("Failed to delete user");
+      }
     }
   };
 
   const handleExport = async () => {
-    const res = await exportUsers();
-    const url = window.URL.createObjectURL(res.data);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "users.csv";
-    a.click();
+    try {
+      setIsExporting(true);
+      // Pass current filters to export
+      const res = await exportUsers({
+        search,
+        status: statusFilter,
+      });
+
+      const url = window.URL.createObjectURL(res.data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "users.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting users:", error);
+      alert("Failed to export users");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleCreate = async (data) => {
-    await createUser(data);
-    setEditingUser(null);
-    loadUsers();
+    try {
+      await createUser(data);
+      setEditingUser(null);
+      loadUsers();
+    } catch (error) {
+      // Error will be handled in UserForm component
+      throw error;
+    }
   };
 
   const handleUpdate = async (data) => {
-    await updateUser(editingUser._id, data);
-    setEditingUser(null);
-    loadUsers();
+    try {
+      await updateUser(editingUser._id, data);
+      setEditingUser(null);
+      loadUsers();
+    } catch (error) {
+      // Error will be handled in UserForm component
+      throw error;
+    }
   };
 
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (editingUser) {
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = "hidden";
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     }
-    
+
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = "unset";
     };
   }, [editingUser]);
 
@@ -110,12 +144,40 @@ const Users = () => {
               {hasPermission("USER_EXPORT") && (
                 <button
                   onClick={handleExport}
+                  disabled={isExporting}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
                   bg-emerald-500 text-white font-semibold
                   hover:bg-emerald-400 hover:scale-[1.02]
-                  shadow-lg shadow-emerald-500/25 transition"
+                  shadow-lg shadow-emerald-500/25 transition
+                  disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Export CSV
+                  {isExporting ? (
+                    <>
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Exporting...
+                    </>
+                  ) : (
+                    "Export CSV"
+                  )}
                 </button>
               )}
             </div>
@@ -173,14 +235,14 @@ const Users = () => {
           {/* Modal */}
           {editingUser && (
             <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
-              {/* Overlay - IMPORTANT: Add pointer-events-none to container */}
+              {/* Overlay */}
               <div
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm"
                 onClick={() => setEditingUser(null)}
               />
 
-              {/* Modal Container - IMPORTANT: Prevent click from bubbling */}
-              <div 
+              {/* Modal Container */}
+              <div
                 className="relative w-full max-w-4xl my-10 mx-4 z-60"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -188,8 +250,12 @@ const Users = () => {
                   {/* Scrollable Content */}
                   <div className="max-h-[90vh] overflow-y-auto p-8">
                     <UserForm
-                      initialData={editingUser !== "create" ? editingUser : null}
-                      onSubmit={editingUser !== "create" ? handleUpdate : handleCreate}
+                      initialData={
+                        editingUser !== "create" ? editingUser : null
+                      }
+                      onSubmit={
+                        editingUser !== "create" ? handleUpdate : handleCreate
+                      }
                       onCancel={() => setEditingUser(null)}
                     />
                   </div>

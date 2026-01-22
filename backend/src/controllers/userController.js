@@ -3,28 +3,108 @@ const Role = require("../models/Role");
 const bcrypt = require("bcryptjs");
 const { Parser } = require("json2csv");
 
+// Validation helper function
+const validateUserData = (data, isUpdate = false) => {
+  const errors = {};
+
+  // Name validation
+  if (!data.name || data.name.trim().length === 0) {
+    errors.name = "Name is required";
+  } else if (data.name.trim().length < 2) {
+    errors.name = "Name must be at least 2 characters long";
+  } else if (data.name.trim().length > 50) {
+    errors.name = "Name must not exceed 50 characters";
+  }
+
+  // Email validation
+  if (!isUpdate) {
+    if (!data.email || data.email.trim().length === 0) {
+      errors.email = "Email is required";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.email)) {
+        errors.email = "Please enter a valid email address";
+      }
+    }
+  }
+
+  // Password validation (only for create)
+  if (!isUpdate) {
+    if (!data.password || data.password.length === 0) {
+      errors.password = "Password is required";
+    } else if (data.password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    } else if (data.password.length > 100) {
+      errors.password = "Password must not exceed 100 characters";
+    }
+  }
+
+  // Roles validation
+  if (data.roles && !Array.isArray(data.roles)) {
+    errors.roles = "Roles must be an array";
+  }
+
+  // Hobbies validation
+  if (data.hobbies && !Array.isArray(data.hobbies)) {
+    errors.hobbies = "Hobbies must be an array";
+  }
+
+  // Status validation
+  if (data.status && !["Active", "Inactive"].includes(data.status)) {
+    errors.status = "Status must be either Active or Inactive";
+  }
+
+  return errors;
+};
+
 // CREATE USER (Admin)
 const createUser = async (req, res) => {
   try {
     const { name, email, password, roles, hobbies, status } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Required fields missing" });
+    // Validate input
+    const validationErrors = validateUserData(req.body, false);
+
+    if (Object.keys(validationErrors).length > 0) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validationErrors,
+      });
     }
 
+    // Check if email already exists
     const existingUser = await User.findOne({
-      email,
+      email: email.toLowerCase().trim(),
       isDeleted: false,
     });
+
     if (existingUser) {
-      return res.status(400).json({ message: "Email already exists" });
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: { email: "Email already exists" },
+      });
+    }
+
+    // Validate roles if provided
+    if (roles && roles.length > 0) {
+      const validRoles = await Role.find({
+        _id: { $in: roles },
+        isDeleted: false,
+      });
+
+      if (validRoles.length !== roles.length) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: { roles: "One or more roles are invalid" },
+        });
+      }
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
       password: hashedPassword,
       roles: roles || [],
       hobbies: hobbies || [],
@@ -33,11 +113,12 @@ const createUser = async (req, res) => {
 
     res.status(201).json(user);
   } catch (error) {
+    console.error("Create user error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET USERS (Pagination + Search + Sorting + Status Filter)
+// GET USERS (Pagination + Search + Sorting + Status Filter) - BACKEND HANDLED
 const getUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -47,21 +128,33 @@ const getUsers = async (req, res) => {
     const search = req.query.search || "";
     const sortBy = req.query.sortBy || "createdAt";
     const order = req.query.order === "asc" ? 1 : -1;
-    const statusFilter = req.query.status || ""; // New status filter parameter
+    const statusFilter = req.query.status || "";
 
+    // Build query object
     const query = {
       isDeleted: false,
-      name: { $regex: search, $options: "i" },
     };
 
-    // Add status filter to query if provided
+    // Add search condition (search in name and email)
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Add status filter if provided
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
       query.status = statusFilter;
     }
 
+    // Build sort object
+    const sortObject = {};
+    sortObject[sortBy] = order;
+
     const users = await User.find(query)
       .populate("roles")
-      .sort({ [sortBy]: order })
+      .sort(sortObject)
       .skip(skip)
       .limit(limit);
 
@@ -74,6 +167,7 @@ const getUsers = async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
+    console.error("Get users error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -85,11 +179,14 @@ const getUserById = async (req, res) => {
       _id: req.params.id,
       isDeleted: false,
     }).populate("roles");
+
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
     res.json(user);
   } catch (error) {
+    console.error("Get user by ID error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -99,19 +196,46 @@ const updateUser = async (req, res) => {
   try {
     const { name, roles, hobbies, status } = req.body;
 
+    // Validate input
+    const validationErrors = validateUserData(req.body, true);
+
+    if (Object.keys(validationErrors).length > 0) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validationErrors,
+      });
+    }
+
     const user = await User.findById(req.params.id);
-    if (!user) {
+
+    if (!user || user.isDeleted) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    user.name = name || user.name;
-    user.roles = roles || user.roles;
-    user.hobbies = hobbies || user.hobbies;
+    // Validate roles if provided
+    if (roles && roles.length > 0) {
+      const validRoles = await Role.find({
+        _id: { $in: roles },
+        isDeleted: false,
+      });
+
+      if (validRoles.length !== roles.length) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: { roles: "One or more roles are invalid" },
+        });
+      }
+    }
+
+    user.name = name ? name.trim() : user.name;
+    user.roles = roles !== undefined ? roles : user.roles;
+    user.hobbies = hobbies !== undefined ? hobbies : user.hobbies;
     user.status = status || user.status;
 
     await user.save();
     res.json(user);
   } catch (error) {
+    console.error("Update user error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -120,9 +244,11 @@ const updateUser = async (req, res) => {
 const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
+
     if (!user || user.isDeleted) {
       return res.status(404).json({ message: "User not found" });
     }
+
     user.isDeleted = true;
     user.deletedAt = new Date();
     user.status = "Inactive";
@@ -130,31 +256,65 @@ const deleteUser = async (req, res) => {
 
     res.json({ message: "User deleted successfully" });
   } catch (error) {
+    console.error("Delete user error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// EXPORT USERS (CSV)
+// EXPORT USERS (CSV) - BACKEND HANDLED WITH STREAMS
 const exportUsers = async (req, res) => {
   try {
-    const users = await User.find().populate("roles");
+    // Apply same filters as getUsers for consistency
+    const search = req.query.search || "";
+    const statusFilter = req.query.status || "";
 
+    const query = {
+      isDeleted: false,
+    };
+
+    // Add search condition
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Add status filter
+    if (statusFilter && statusFilter.toLowerCase() !== "all") {
+      query.status = statusFilter;
+    }
+
+    // Fetch all users matching the query (no pagination for export)
+    const users = await User.find(query).populate("roles");
+
+    // Transform data for CSV
     const data = users.map((user) => ({
       name: user.name,
       email: user.email,
       status: user.status,
       roles: user.roles.map((r) => r.name).join(", "),
       hobbies: user.hobbies.join(", "),
+      createdAt: user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString()
+        : "",
     }));
 
-    const parser = new Parser();
+    // Generate CSV
+    const parser = new Parser({
+      fields: ["name", "email", "status", "roles", "hobbies", "createdAt"],
+    });
     const csv = parser.parse(data);
 
+    // Set headers for file download
     res.header("Content-Type", "text/csv");
-    res.attachment("users.csv");
+    res.header("Content-Disposition", "attachment; filename=users.csv");
+
+    // Send CSV data
     res.send(csv);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Export users error:", error);
+    res.status(500).json({ message: "Server error while exporting" });
   }
 };
 

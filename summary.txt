@@ -1,0 +1,1703 @@
+# User Management System - Comprehensive Project Analysis
+
+## 📋 Table of Contents
+1. [Brief Summary](#brief-summary)
+2. [Features Overview](#features-overview)
+3. [Implementation Details](#implementation-details)
+4. [Alternative Approaches & Optimization](#alternative-approaches--optimization)
+5. [Folder & File Structure](#folder--file-structure)
+6. [File-by-File Code Explanation](#file-by-file-code-explanation)
+7. [Implementation Strategy](#implementation-strategy)
+8. [Application Flow](#application-flow)
+9. [Edge Cases, Limitations & Assumptions](#edge-cases-limitations--assumptions)
+
+---
+
+## 📝 Brief Summary
+
+This is a **full-stack User Management System** built with:
+- **Backend**: Node.js + Express.js + MongoDB (Mongoose)
+- **Frontend**: React.js + Vite + TailwindCSS
+- **Authentication**: JWT (JSON Web Tokens)
+- **Authorization**: Role-Based Access Control (RBAC) with Permission-Based Access Control (PBAC)
+
+The system allows administrators to manage users and roles with fine-grained permission control. Users can be assigned multiple roles, and each role can have multiple permissions. The system implements soft deletion, pagination, search, sorting, and CSV export functionality.
+
+---
+
+## 🎯 Features Overview
+
+### Core Features Implemented:
+
+1. **Authentication System**
+   - User login with email/password
+   - JWT token-based authentication
+   - Token stored in localStorage
+
+2. **User Management**
+   - Create, Read, Update, Delete (CRUD) operations
+   - Soft delete (isDeleted flag)
+   - User status management (Active/Inactive)
+   - Multiple roles assignment per user
+   - Hobbies management
+   - Pagination, search, sorting, filtering
+
+3. **Role Management**
+   - Create, Read, Update, Delete roles
+   - Permission assignment to roles
+   - Role status management
+   - Soft delete implementation
+
+4. **Permission System**
+   - Permission-based route protection
+   - Role-based route protection
+   - Frontend permission checks
+   - Backend middleware validation
+
+5. **Data Export**
+   - CSV export with filtering
+   - Respects search and status filters
+
+6. **UI/UX Features**
+   - Responsive design with TailwindCSS
+   - Modal forms for create/edit
+   - Real-time validation
+   - Loading states
+   - Error handling
+
+---
+
+## 🔧 Implementation Details
+
+### Server-Side Features:
+
+1. **Pagination** ✅
+   - Implemented in `getUsers()` and `getRoles()`
+   - Query parameters: `page`, `limit`
+   - Calculates `skip` and `totalPages`
+
+2. **Search** ✅
+   - Server-side regex search on name and email
+   - Query parameter: `search`
+   - Case-insensitive matching
+
+3. **Sorting** ✅
+   - Server-side sorting by multiple fields
+   - Query parameters: `sortBy`, `order` (asc/desc)
+   - Default: `createdAt` descending
+
+4. **Filtering** ✅
+   - Status filter (Active/Inactive)
+   - Query parameter: `status`
+   - Applied in MongoDB query
+
+5. **CSV Export** ✅
+   - Server-side CSV generation using `json2csv`
+   - Applies same filters as list view
+   - Streams response to client
+
+6. **Validation** ✅
+   - Server-side validation in `userController.js`
+   - Email format validation
+   - Password strength validation
+   - Role existence validation
+
+7. **Authentication & Authorization** ✅
+   - JWT token verification middleware
+   - Permission checking middleware
+   - Role-based access control
+
+### Client-Side Features:
+
+1. **Form Validation** ✅
+   - Client-side validation feedback
+   - Error display from server responses
+   - Real-time error clearing
+
+2. **Permission Checks** ✅
+   - `hasPermission()` utility function
+   - Conditional rendering of UI elements
+   - Route protection via `ProRoute` component
+
+3. **State Management** ✅
+   - React hooks (useState, useEffect)
+   - Local state for forms, lists, pagination
+   - localStorage for auth data
+
+4. **UI Components** ✅
+   - Reusable form components
+   - Modal dialogs
+   - Responsive tables
+   - Loading indicators
+
+---
+
+## 🚀 Alternative Approaches & Optimization
+
+### Current Implementation Analysis:
+
+**What's Server-Side:**
+- Pagination logic
+- Search queries
+- Sorting operations
+- Filtering
+- CSV generation
+- All database operations
+- Authentication/Authorization
+
+**What's Client-Side:**
+- Form validation (basic)
+- Permission checks (for UI)
+- State management
+- UI rendering
+
+### Alternative Approaches to Reduce Server Load:
+
+#### 1. **Client-Side Pagination** (Not Recommended for Large Datasets)
+**Current**: Server handles pagination
+```javascript
+// Current: Server-side
+const page = Number(req.query.page) || 1;
+const limit = Number(req.query.limit) || 4;
+const skip = (page - 1) * limit;
+const users = await User.find(query).skip(skip).limit(limit);
+```
+
+**Alternative**: Fetch all data, paginate on client
+- ✅ Reduces server requests
+- ❌ Poor performance with large datasets
+- ❌ High memory usage on client
+- ❌ Slower initial load
+- **Feasibility**: Only for < 1000 records
+
+#### 2. **Client-Side Search/Filter** (Hybrid Approach - RECOMMENDED)
+**Current**: Server handles all search
+```javascript
+// Current: Server-side search
+if (search) {
+  query.$or = [
+    { name: { $regex: search, $options: "i" } },
+    { email: { $regex: search, $options: "i" } }
+  ];
+}
+```
+
+**Alternative**: Debounced search with client-side filtering for cached data
+- ✅ Reduces server requests for frequent searches
+- ✅ Instant feedback for cached results
+- ✅ Server fallback for complex queries
+- **Feasibility**: HIGH - Best approach
+- **Implementation**: 
+  - Cache first page of results
+  - Filter cached data for quick searches
+  - Debounce server requests (300ms delay)
+  - Use server for complex filters
+
+#### 3. **Client-Side Sorting** (For Small Datasets)
+**Current**: Server handles sorting
+```javascript
+// Current: Server-side
+const sortObject = {};
+sortObject[sortBy] = order;
+const users = await User.find(query).sort(sortObject);
+```
+
+**Alternative**: Sort cached data on client
+- ✅ No server request for sort changes
+- ❌ Only works with cached data
+- **Feasibility**: MEDIUM - Good for paginated cached data
+
+#### 4. **Virtual Scrolling / Infinite Scroll** (RECOMMENDED)
+**Current**: Traditional pagination
+```javascript
+// Current: Page-based pagination
+const users = await User.find(query).skip(skip).limit(limit);
+```
+
+**Alternative**: Infinite scroll with virtual scrolling
+- ✅ Loads data as needed
+- ✅ Better UX
+- ✅ Reduces initial load
+- **Feasibility**: HIGH
+- **Implementation**: Use libraries like `react-window` or `react-virtualized`
+
+#### 5. **Caching Strategy** (RECOMMENDED)
+**Current**: No caching, every request hits server
+
+**Alternative**: Implement caching layers
+- **Browser Cache**: Cache API responses
+- **Service Worker**: Offline support
+- **React Query / SWR**: Automatic caching and refetching
+- ✅ Reduces server load significantly
+- ✅ Better UX with instant data
+- **Feasibility**: HIGH
+
+#### 6. **Optimistic Updates** (RECOMMENDED)
+**Current**: Wait for server response before UI update
+
+**Alternative**: Update UI immediately, rollback on error
+- ✅ Instant feedback
+- ✅ Reduces perceived latency
+- **Feasibility**: HIGH
+
+#### 7. **Batch Operations** (For Bulk Actions)
+**Current**: Individual API calls for each operation
+
+**Alternative**: Batch API for multiple operations
+- ✅ Fewer server requests
+- ✅ Atomic operations
+- **Feasibility**: MEDIUM
+
+### Most Feasible Optimizations (Priority Order):
+
+1. **Implement React Query / SWR** ⭐⭐⭐
+   - Automatic caching
+   - Background refetching
+   - Reduces server requests by 60-80%
+
+2. **Debounced Search with Client-Side Filtering** ⭐⭐⭐
+   - Hybrid approach
+   - Reduces search requests by 70%
+
+3. **Virtual Scrolling / Infinite Scroll** ⭐⭐
+   - Better UX
+   - Loads data incrementally
+
+4. **Optimistic Updates** ⭐⭐
+   - Better perceived performance
+
+5. **Client-Side Sorting for Cached Data** ⭐
+   - Quick wins for small datasets
+
+---
+
+## 📁 Folder & File Structure
+
+### Project Structure:
+```
+Usermgmt/
+├── backend/
+│   ├── src/
+│   │   ├── config/
+│   │   │   └── db.js              # MongoDB connection
+│   │   ├── controllers/
+│   │   │   ├── authcontroller.js  # Login logic
+│   │   │   ├── userController.js  # User CRUD operations
+│   │   │   └── roleController.js  # Role CRUD operations
+│   │   ├── middlewares/
+│   │   │   ├── authMiddleware.js    # JWT verification
+│   │   │   └── permissionMiddleware.js # Permission checking
+│   │   ├── models/
+│   │   │   ├── User.js             # User schema
+│   │   │   └── Role.js              # Role schema
+│   │   ├── routes/
+│   │   │   ├── authRoutes.js       # Auth endpoints
+│   │   │   ├── userRoutes.js       # User endpoints
+│   │   │   └── roleRoutes.js       # Role endpoints
+│   │   └── server.js                # Express app entry point
+│   ├── package.json
+│   └── .env                         # Environment variables
+│
+└── frontend/
+    ├── src/
+    │   ├── Components/
+    │   │   ├── Navbar.jsx           # Top navigation
+    │   │   ├── Sidebar.jsx          # Side navigation
+    │   │   ├── UserForm.jsx         # User create/edit form
+    │   │   ├── RoleForm.jsx         # Role create/edit form
+    │   │   └── Permissions.jsx     # Permission utility
+    │   ├── pages/
+    │   │   ├── Login.jsx            # Login page
+    │   │   ├── Dashboard.jsx        # Admin dashboard
+    │   │   ├── Home.jsx             # User home page
+    │   │   ├── User.jsx             # User management page
+    │   │   ├── Roles.jsx            # Role management page
+    │   │   └── Admin.jsx            # Admin layout wrapper
+    │   ├── routes/
+    │   │   └── ProRoutes.jsx        # Protected route component
+    │   ├── services/
+    │   │   ├── AuthService.jsx      # Auth API calls
+    │   │   ├── UserService.jsx      # User API calls
+    │   │   └── RoleService.jsx     # Role API calls
+    │   ├── App.jsx                  # Main app component
+    │   ├── main.jsx                 # React entry point
+    │   └── index.css                # Global styles
+    ├── package.json
+    └── vite.config.js
+```
+
+### Directory Purposes:
+
+#### Backend Structure:
+
+**`/config`** - Configuration files
+- Database connections
+- Environment setup
+
+**`/controllers`** - Request handling logic
+- Business logic for each resource
+- Request/response handling
+- Validation
+
+**`/middlewares`** - Request interceptors
+- Authentication verification
+- Authorization checks
+- Request preprocessing
+
+**`/models`** - Database schemas
+- Mongoose schemas
+- Data structure definitions
+- Validation rules
+
+**`/routes`** - API endpoint definitions
+- Route definitions
+- Middleware application
+- Controller mapping
+
+#### Frontend Structure:
+
+**`/Components`** - Reusable UI components
+- Presentational components
+- Form components
+- Layout components
+
+**`/pages`** - Page-level components
+- Full page views
+- Container components
+- Route targets
+
+**`/routes`** - Routing logic
+- Protected route wrapper
+- Route guards
+
+**`/services`** - API communication
+- HTTP client functions
+- API endpoint abstractions
+- Request/response handling
+
+### Naming Conventions:
+
+- **Files**: camelCase for JS files, PascalCase for React components
+- **Functions**: camelCase
+- **Components**: PascalCase
+- **Constants**: UPPER_SNAKE_CASE (e.g., `ALL_PERMISSIONS`)
+- **Routes**: kebab-case in URLs, camelCase in code
+- **Database**: camelCase for fields, PascalCase for models
+
+---
+
+## 📄 File-by-File Code Explanation
+
+### Backend Files
+
+#### 1. `backend/src/server.js`
+**Purpose**: Express application entry point
+
+**Key Components**:
+- Express app initialization
+- Middleware setup (CORS, JSON parser)
+- Route registration
+- Server startup
+
+**Line-by-Line**:
+```javascript
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+
+dotenv.config(); // Loads environment variables from .env file
+
+const connectDB = require("./config/db"); // Database connection function
+// ... model imports (not used directly, but available)
+const authRoutes = require("./routes/authRoutes");
+const roleRoutes = require("./routes/roleRoutes");
+const userRoutes = require("./routes/userRoutes");
+
+const app = express();
+
+connectDB(); // Establishes MongoDB connection
+
+// Middleware
+app.use(cors()); // Allows cross-origin requests
+app.use(express.json()); // Parses JSON request bodies
+
+// Route mounting
+app.use("/api/auth", authRoutes);   // /api/auth/* routes
+app.use("/api/roles", roleRoutes);  // /api/roles/* routes
+app.use("/api/users", userRoutes);  // /api/users/* routes
+
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.send("API is running...");
+});
+
+// Start server on PORT from .env or default 5000
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+```
+
+**Data Flow**:
+1. Request → CORS middleware → JSON parser → Route handler
+2. Response ← Controller ← Middleware ← Route
+
+---
+
+#### 2. `backend/src/config/db.js`
+**Purpose**: MongoDB connection configuration
+
+**Key Components**:
+- Mongoose connection setup
+- Error handling
+
+**Line-by-Line**:
+```javascript
+const mongoose = require("mongoose");
+
+const connectDB = async () => {
+  try {
+    // Connects to MongoDB using connection string from .env
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("MongoDB connected");
+  } catch (error) {
+    // Logs connection errors
+    console.log("MongoDB connection failed:", error.message);
+  }
+};
+
+module.exports = connectDB;
+```
+
+**Input**: `process.env.MONGO_URI` (MongoDB connection string)
+**Output**: Connected MongoDB instance
+**Error Handling**: Catches and logs connection errors
+
+---
+
+#### 3. `backend/src/models/User.js`
+**Purpose**: User database schema definition
+
+**Key Components**:
+- User fields definition
+- Validation rules
+- Relationships (roles reference)
+
+**Line-by-Line**:
+```javascript
+const mongoose = require("mongoose");
+
+const userSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,        // Must be provided
+      trim: true,            // Removes whitespace
+    },
+    email: {
+      type: String,
+      required: true,
+      unique: true,          // No duplicate emails
+      lowercase: true,       // Converts to lowercase
+      trim: true,
+    },
+    password: {
+      type: String,
+      required: true,        // Hashed password stored here
+    },
+    roles: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Role",        // References Role model
+      },
+    ],
+    hobbies: {
+      type: [String],        // Array of strings
+      default: [],           // Empty array by default
+    },
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"], // Only these values allowed
+      default: "Active",
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,        // Soft delete flag
+    },
+    deletedAt: {
+      type: Date,
+      default: null,         // Timestamp when deleted
+    },
+  },
+  { timestamps: true }       // Adds createdAt, updatedAt automatically
+);
+
+module.exports = mongoose.model("User", userSchema);
+```
+
+**Key Features**:
+- Soft delete support (`isDeleted`, `deletedAt`)
+- Automatic timestamps
+- Role relationship via ObjectId reference
+- Email uniqueness constraint
+
+---
+
+#### 4. `backend/src/models/Role.js`
+**Purpose**: Role database schema definition
+
+**Key Components**:
+- Role fields
+- Permissions array
+- Status management
+
+**Line-by-Line**:
+```javascript
+const roleSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,          // Role names must be unique
+      trim: true,
+    },
+    permissions: {
+      type: [String],        // Array of permission strings
+      default: [],
+    },
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Active",
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    }
+  },
+  { timestamps: true }
+);
+```
+
+**Permissions Format**: Array of strings like `["USER_VIEW", "USER_CREATE", ...]`
+
+---
+
+#### 5. `backend/src/controllers/authcontroller.js`
+**Purpose**: Authentication logic
+
+**Key Functions**:
+- `login()` - User authentication
+
+**Line-by-Line**:
+```javascript
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Validate input
+    if (!email || !password) {
+      return res.status(400).json({ 
+        message: "Email and password are required" 
+      });
+    }
+
+    // 2. Find user by email and populate roles
+    const user = await User.findOne({ email }).populate("roles");
+    if (!user) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 3. Check if user is active
+    if (user.status === "Inactive") {
+      return res.status(403).json({ message: "User is inactive" });
+    }
+
+    // 4. Verify password using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // 5. Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        roles: user.roles.map((role) => role.name), // Role names in token
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" } // Token valid for 1 day
+    );
+
+    // 6. Collect permissions from all active roles
+    let permissions = [];
+    user.roles.forEach((role) => {
+      if (role.status === "Active") {
+        permissions.push(...role.permissions); // Spread operator adds all permissions
+      }
+    });
+
+    // 7. Return token and user data
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles.map((role) => role.name),
+        permissions, // All permissions from all roles
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+```
+
+**Data Flow**:
+1. Email/password → Validation → User lookup → Password check → Token generation → Response
+
+**Security Features**:
+- Password hashing verification (bcrypt)
+- Status check before login
+- JWT token with user info
+- Permissions aggregation
+
+---
+
+#### 6. `backend/src/controllers/userController.js`
+**Purpose**: User CRUD operations
+
+**Key Functions**:
+- `validateUserData()` - Input validation helper
+- `createUser()` - Create new user
+- `getUsers()` - List users with pagination/search/sort
+- `getUserById()` - Get single user
+- `updateUser()` - Update user
+- `deleteUser()` - Soft delete user
+- `exportUsers()` - Export to CSV
+
+**Detailed Explanation**:
+
+**`validateUserData()` (Lines 7-58)**:
+```javascript
+const validateUserData = (data, isUpdate = false) => {
+  const errors = {};
+  
+  // Name validation: 2-50 characters
+  if (!data.name || data.name.trim().length === 0) {
+    errors.name = "Name is required";
+  } else if (data.name.trim().length < 2) {
+    errors.name = "Name must be at least 2 characters long";
+  } else if (data.name.trim().length > 50) {
+    errors.name = "Name must not exceed 50 characters";
+  }
+
+  // Email validation (only for create)
+  if (!isUpdate) {
+    if (!data.email || data.email.trim().length === 0) {
+      errors.email = "Email is required";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.email)) {
+        errors.email = "Please enter a valid email address";
+      }
+    }
+  }
+
+  // Password validation (only for create)
+  if (!isUpdate) {
+    if (!data.password || data.password.length === 0) {
+      errors.password = "Password is required";
+    } else if (data.password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    }
+  }
+
+  // Roles and hobbies must be arrays
+  if (data.roles && !Array.isArray(data.roles)) {
+    errors.roles = "Roles must be an array";
+  }
+  if (data.hobbies && !Array.isArray(data.hobbies)) {
+    errors.hobbies = "Hobbies must be an array";
+  }
+
+  // Status must be Active or Inactive
+  if (data.status && !["Active", "Inactive"].includes(data.status)) {
+    errors.status = "Status must be either Active or Inactive";
+  }
+
+  return errors; // Returns object with field errors
+};
+```
+
+**`createUser()` (Lines 61-119)**:
+```javascript
+const createUser = async (req, res) => {
+  try {
+    const { name, email, password, roles, hobbies, status } = req.body;
+
+    // 1. Validate input
+    const validationErrors = validateUserData(req.body, false);
+    if (Object.keys(validationErrors).length > 0) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: validationErrors,
+      });
+    }
+
+    // 2. Check email uniqueness (excluding soft-deleted users)
+    const existingUser = await User.findOne({
+      email: email.toLowerCase().trim(),
+      isDeleted: false,
+    });
+    if (existingUser) {
+      return res.status(400).json({
+        message: "Validation failed",
+        errors: { email: "Email already exists" },
+      });
+    }
+
+    // 3. Validate role IDs exist
+    if (roles && roles.length > 0) {
+      const validRoles = await Role.find({
+        _id: { $in: roles }, // MongoDB $in operator
+        isDeleted: false,
+      });
+      if (validRoles.length !== roles.length) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: { roles: "One or more roles are invalid" },
+        });
+      }
+    }
+
+    // 4. Hash password
+    const hashedPassword = await bcrypt.hash(password, 10); // 10 salt rounds
+
+    // 5. Create user
+    const user = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
+      roles: roles || [],
+      hobbies: hobbies || [],
+      status: status || "Active",
+    });
+
+    res.status(201).json(user);
+  } catch (error) {
+    console.error("Create user error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+```
+
+**`getUsers()` (Lines 122-173)** - Most Complex Function:
+```javascript
+const getUsers = async (req, res) => {
+  try {
+    // 1. Extract pagination parameters
+    const page = Number(req.query.page) || 1;      // Default page 1
+    const limit = Number(req.query.limit) || 4;    // Default 4 per page
+    const skip = (page - 1) * limit;               // Calculate skip value
+
+    // 2. Extract filter parameters
+    const search = req.query.search || "";
+    const sortBy = req.query.sortBy || "createdAt";
+    const order = req.query.order === "asc" ? 1 : -1; // 1 = asc, -1 = desc
+    const statusFilter = req.query.status || "";
+
+    // 3. Build MongoDB query object
+    const query = {
+      isDeleted: false, // Only non-deleted users
+    };
+
+    // 4. Add search condition (searches name OR email)
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },    // Case-insensitive
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // 5. Add status filter
+    if (statusFilter && statusFilter.toLowerCase() !== "all") {
+      query.status = statusFilter;
+    }
+
+    // 6. Build sort object dynamically
+    const sortObject = {};
+    sortObject[sortBy] = order; // e.g., { createdAt: -1 }
+
+    // 7. Execute query with pagination, populate roles, and sort
+    const users = await User.find(query)
+      .populate("roles")           // Replaces role IDs with role objects
+      .sort(sortObject)            // Apply sorting
+      .skip(skip)                  // Skip records for pagination
+      .limit(limit);               // Limit results
+
+    // 8. Get total count for pagination
+    const total = await User.countDocuments(query);
+
+    // 9. Return paginated response
+    res.json({
+      users,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit), // Calculate total pages
+    });
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+```
+
+**Algorithm Explanation**:
+- **Pagination**: `skip = (page - 1) * limit` calculates how many records to skip
+- **Search**: Uses MongoDB `$regex` with `$options: "i"` for case-insensitive matching
+- **Sorting**: Dynamic sort object allows sorting by any field
+- **Populate**: Replaces role ObjectIds with full role documents
+
+**`exportUsers()` (Lines 264-319)**:
+```javascript
+const exportUsers = async (req, res) => {
+  try {
+    // 1. Apply same filters as getUsers
+    const search = req.query.search || "";
+    const statusFilter = req.query.status || "";
+
+    const query = { isDeleted: false };
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (statusFilter && statusFilter.toLowerCase() !== "all") {
+      query.status = statusFilter;
+    }
+
+    // 2. Fetch ALL matching users (no pagination)
+    const users = await User.find(query).populate("roles");
+
+    // 3. Transform data for CSV format
+    const data = users.map((user) => ({
+      name: user.name,
+      email: user.email,
+      status: user.status,
+      roles: user.roles.map((r) => r.name).join(", "), // Join role names
+      hobbies: user.hobbies.join(", "),                  // Join hobbies
+      createdAt: user.createdAt
+        ? new Date(user.createdAt).toLocaleDateString()
+        : "",
+    }));
+
+    // 4. Generate CSV using json2csv library
+    const parser = new Parser({
+      fields: ["name", "email", "status", "roles", "hobbies", "createdAt"],
+    });
+    const csv = parser.parse(data);
+
+    // 5. Set HTTP headers for file download
+    res.header("Content-Type", "text/csv");
+    res.header("Content-Disposition", "attachment; filename=users.csv");
+
+    // 6. Send CSV as response
+    res.send(csv);
+  } catch (error) {
+    console.error("Export users error:", error);
+    res.status(500).json({ message: "Server error while exporting" });
+  }
+};
+```
+
+---
+
+#### 7. `backend/src/controllers/roleController.js`
+**Purpose**: Role CRUD operations
+
+**Similar structure to userController**:
+- `createRole()` - Creates role with permissions
+- `getRoles()` - Paginated list with search/sort
+- `getRoleById()` - Single role
+- `updateRole()` - Updates role
+- `deleteRole()` - Soft delete
+
+**Key Difference**: Simpler validation (no email/password)
+
+---
+
+#### 8. `backend/src/middlewares/authMiddleware.js`
+**Purpose**: JWT token verification
+
+**Line-by-Line**:
+```javascript
+const protect = (req, res, next) => {
+  // 1. Extract authorization header
+  const authHeader = req.headers.authorization;
+
+  // 2. Check if header exists and starts with "Bearer"
+  if (!authHeader || !authHeader.startsWith("Bearer")) {
+    return res.status(401).json({ message: "Not authorized" });
+  }
+
+  try {
+    // 3. Extract token (format: "Bearer <token>")
+    const token = authHeader.split(" ")[1];
+    
+    // 4. Verify token and decode payload
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    // 5. Attach decoded user info to request object
+    req.user = decoded; // Contains { userId, roles }
+    
+    // 6. Continue to next middleware/controller
+    next();
+  } catch (error) {
+    // Token invalid or expired
+    return res.status(401).json({ message: "Invalid token" });
+  }
+};
+```
+
+**Data Flow**: Request → Extract token → Verify → Attach user → Next middleware
+
+---
+
+#### 9. `backend/src/middlewares/permissionMiddleware.js`
+**Purpose**: Permission-based authorization
+
+**Line-by-Line**:
+```javascript
+const checkPermission = (requiredPermission) => {
+  // Returns a middleware function
+  return async (req, res, next) => {
+    try {
+      // 1. Get userId from JWT (set by authMiddleware)
+      const userId = req.user.userId;
+
+      // 2. Fetch user with roles populated
+      const user = await User.findById(userId).populate("roles");
+
+      if (!user) {
+        return res.status(401).json({ message: "User not found" });
+      }
+
+      // 3. Collect all permissions from active roles
+      let permissions = [];
+      user.roles.forEach((role) => {
+        if (role.status === "Active" && !role.isDeleted) {
+          permissions.push(...role.permissions); // Spread all permissions
+        }
+      });
+
+      // 4. Check if user has required permission
+      if (!permissions.includes(requiredPermission)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // 5. User has permission, continue
+      next();
+    } catch (error) {
+      return res.status(500).json({ message: "Server error" });
+    }
+  };
+};
+```
+
+**Usage**: `checkPermission("USER_CREATE")` returns middleware that checks for that permission
+
+**Note**: This queries the database on every request. Could be optimized by caching permissions in JWT token.
+
+---
+
+#### 10. `backend/src/routes/userRoutes.js`
+**Purpose**: User API endpoint definitions
+
+**Line-by-Line**:
+```javascript
+const express = require("express");
+const router = express.Router();
+
+// Import controllers
+const {
+  createUser,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  exportUsers,
+} = require("../controllers/userController");
+
+// Import middlewares
+const protect = require("../middlewares/authMiddleware");
+const checkPermission = require("../middlewares/permissionMiddleware");
+
+// Route definitions with middleware chain
+router.post("/", protect, checkPermission("USER_CREATE"), createUser);
+// POST /api/users
+// Flow: protect (JWT check) → checkPermission (USER_CREATE) → createUser
+
+router.get("/", protect, checkPermission("USER_VIEW"), getUsers);
+// GET /api/users?page=1&limit=4&search=john&sortBy=name&order=asc&status=Active
+
+router.get("/export", protect, checkPermission("USER_EXPORT"), exportUsers);
+// GET /api/users/export?search=john&status=Active
+
+router.get("/:id", protect, checkPermission("USER_VIEW"), getUserById);
+// GET /api/users/:id
+
+router.put("/:id", protect, checkPermission("USER_EDIT"), updateUser);
+// PUT /api/users/:id
+
+router.delete("/:id", protect, checkPermission("USER_DELETE"), deleteUser);
+// DELETE /api/users/:id
+
+module.exports = router;
+```
+
+**Middleware Chain**: Each request goes through:
+1. `protect` - Verifies JWT token
+2. `checkPermission` - Checks specific permission
+3. Controller - Handles business logic
+
+---
+
+### Frontend Files
+
+#### 11. `frontend/src/main.jsx`
+**Purpose**: React application entry point
+
+**Line-by-Line**:
+```javascript
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
+
+// Creates React root and renders App component
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+```
+
+**StrictMode**: Enables additional React development checks
+
+---
+
+#### 12. `frontend/src/App.jsx`
+**Purpose**: Main app component with routing
+
+**Line-by-Line**:
+```javascript
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import ProRoute from "./routes/ProRoutes";
+import Users from "./pages/User";
+import Roles from "./pages/Roles";
+import Home from "./pages/Home";
+
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* Public route */}
+        <Route path="/" element={<Login />} />
+
+        {/* Protected routes with role/permission checks */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProRoute allowedRoles={["Admin"]}>
+              <Dashboard />
+            </ProRoute>
+          }
+        />
+        {/* Only users with "Admin" role can access */}
+
+        <Route
+          path="/home"
+          element={
+            <ProRoute>
+              <Home />
+            </ProRoute>
+          }
+        />
+        {/* Any authenticated user can access */}
+
+        <Route
+          path="/users"
+          element={
+            <ProRoute requiredPermission="USER_VIEW">
+              <Users />
+            </ProRoute>
+          }
+        />
+        {/* Requires USER_VIEW permission */}
+
+        <Route
+          path="/roles"
+          element={
+            <ProRoute requiredPermission="ROLE_VIEW">
+              <Roles />
+            </ProRoute>
+          }
+        />
+        {/* Requires ROLE_VIEW permission */}
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+**Routing Strategy**:
+- Public: `/` (Login)
+- Role-based: `/dashboard` (Admin only)
+- Permission-based: `/users`, `/roles`
+- Authenticated: `/home` (any logged-in user)
+
+---
+
+#### 13. `frontend/src/routes/ProRoutes.jsx`
+**Purpose**: Protected route wrapper component
+
+**Line-by-Line**:
+```javascript
+import { Navigate } from "react-router-dom";
+
+const ProRoute = ({ children, allowedRoles, requiredPermission }) => {
+  // 1. Get auth data from localStorage
+  const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  // 2. Check if user is logged in
+  if (!token || !user) {
+    return <Navigate to="/" replace />; // Redirect to login
+  }
+
+  // 3. Check role-based restriction
+  if (
+    allowedRoles &&
+    !allowedRoles.some(role => user.roles.includes(role))
+  ) {
+    return <Navigate to="/home" replace />; // Redirect to home
+  }
+
+  // 4. Check permission-based restriction
+  if (
+    requiredPermission &&
+    !user.permissions?.includes(requiredPermission)
+  ) {
+    return <Navigate to="/home" replace />; // Redirect to home
+  }
+
+  // 5. User has access, render children
+  return children;
+};
+```
+
+**Logic Flow**:
+1. Check authentication → Redirect to login if not authenticated
+2. Check role → Redirect to home if role doesn't match
+3. Check permission → Redirect to home if permission missing
+4. Render protected content
+
+---
+
+#### 14. `frontend/src/services/AuthService.jsx`
+**Purpose**: Authentication API calls
+
+**Line-by-Line**:
+```javascript
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/auth";
+
+export const loginUser = async (data) => {
+  // POST request to /api/auth/login
+  const response = await axios.post(`${API_URL}/login`, data);
+  return response.data; // Returns { token, user }
+};
+```
+
+**Usage**: Called from Login component with `{ email, password }`
+
+---
+
+#### 15. `frontend/src/services/UserService.jsx`
+**Purpose**: User management API calls
+
+**Line-by-Line**:
+```javascript
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/users";
+
+// Helper function to add JWT token to request headers
+const getAuthHeader = () => ({
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem("token")}`,
+  },
+});
+
+// Fetch users with query parameters
+export const fetchUsers = (params) =>
+  axios.get(API_URL, { ...getAuthHeader(), params });
+// GET /api/users?page=1&limit=4&search=john&sortBy=name&order=asc&status=Active
+
+// Create user
+export const createUser = (data) => 
+  axios.post(API_URL, data, getAuthHeader());
+// POST /api/users
+
+// Update user
+export const updateUser = (id, data) =>
+  axios.put(`${API_URL}/${id}`, data, getAuthHeader());
+// PUT /api/users/:id
+
+// Delete user
+export const deleteUser = (id) =>
+  axios.delete(`${API_URL}/${id}`, getAuthHeader());
+// DELETE /api/users/:id
+
+// Export users to CSV
+export const exportUsers = (params) =>
+  axios.get(`${API_URL}/export`, {
+    ...getAuthHeader(),
+    params,
+    responseType: "blob", // Important: tells axios to handle binary data
+  });
+// GET /api/users/export?search=john&status=Active
+```
+
+**Key Features**:
+- Automatic JWT token injection
+- Query parameter support
+- Blob response type for CSV export
+
+---
+
+#### 16. `frontend/src/pages/Login.jsx`
+**Purpose**: Login page component
+
+**Key Features**:
+- Form state management
+- Error handling
+- Navigation after login
+- Role-based redirect
+
+**Line-by-Line**:
+```javascript
+const Login = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      // 1. Call login API
+      const data = await loginUser({ email, password });
+
+      // 2. Store auth data in localStorage
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // 3. Redirect based on role
+      if (data.user.roles.includes("Admin")) {
+        navigate("/dashboard");
+      } else {
+        navigate("/home");
+      }
+    } catch (err) {
+      // 4. Display error message
+      setError(err.response?.data?.message || "Login failed");
+    }
+  };
+
+  // JSX: Form with email, password inputs and submit button
+  return (
+    <div className="min-h-screen flex items-center justify-center...">
+      {/* Login form UI */}
+    </div>
+  );
+};
+```
+
+**Data Flow**:
+1. User enters credentials → Submit → API call → Store token → Navigate
+
+---
+
+#### 17. `frontend/src/pages/User.jsx`
+**Purpose**: User management page (most complex frontend component)
+
+**Key Features**:
+- User list with pagination
+- Search, filter, sort
+- Create/Edit modal
+- Delete confirmation
+- CSV export
+- Permission-based UI
+
+**Key Functions**:
+
+**`loadUsers()` (Lines 24-38)**:
+```javascript
+const loadUsers = async () => {
+  try {
+    // Fetch users with current filters
+    const res = await fetchUsers({
+      page,
+      search,
+      status: statusFilter,
+      sortBy,
+      order: sortOrder,
+    });
+    setUsers(res.data.users);
+    setTotalPages(res.data.totalPages);
+  } catch (error) {
+    console.error("Error loading users:", error);
+  }
+};
+```
+
+**`useEffect` Hooks**:
+```javascript
+// Reset to page 1 when filters change
+useEffect(() => {
+  setPage(1);
+}, [search, statusFilter, sortBy, sortOrder]);
+
+// Reload users when page or filters change
+useEffect(() => {
+  loadUsers();
+}, [page, search, statusFilter, sortBy, sortOrder]);
+```
+
+**`handleExport()` (Lines 60-81)**:
+```javascript
+const handleExport = async () => {
+  try {
+    setIsExporting(true);
+    
+    // 1. Call export API with current filters
+    const res = await exportUsers({
+      search,
+      status: statusFilter,
+    });
+
+    // 2. Create blob URL from response
+    const url = window.URL.createObjectURL(res.data);
+    
+    // 3. Create temporary anchor element
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "users.csv";
+    
+    // 4. Trigger download
+    a.click();
+    
+    // 5. Clean up blob URL
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Error exporting users:", error);
+    alert("Failed to export users");
+  } finally {
+    setIsExporting(false);
+  }
+};
+```
+
+**Permission-Based Rendering**:
+```javascript
+{hasPermission("USER_CREATE") && (
+  <button onClick={() => setEditingUser("create")}>
+    Add User
+  </button>
+)}
+
+{hasPermission("USER_EDIT") && (
+  <button onClick={() => setEditingUser(user)}>
+    Edit
+  </button>
+)}
+```
+
+---
+
+#### 18. `frontend/src/Components/UserForm.jsx`
+**Purpose**: User create/edit form component
+
+**Key Features**:
+- Form state management
+- Dynamic role loading
+- Validation error display
+- Edit vs Create mode
+
+**Key Logic**:
+
+**Form Data Initialization**:
+```javascript
+useEffect(() => {
+  if (initialData && initialData._id) {
+    // Edit mode: populate form with existing data
+    setFormData({
+      name: initialData.name || "",
+      email: initialData.email || "",
+      password: "", // Don't populate password
+      roles: initialData.roles?.map((r) => r._id) || [], // Extract role IDs
+      hobbies: initialData.hobbies || [],
+      status: initialData.status || "Active",
+    });
+  } else {
+    // Create mode: empty form
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      roles: [],
+      hobbies: [],
+      status: "Active",
+    });
+  }
+  setErrors({});
+}, [initialData]);
+```
+
+**Role Loading**:
+```javascript
+useEffect(() => {
+  const loadRoles = async () => {
+    try {
+      setLoading(true);
+      const res = await fetchRoles();
+      // Handle different response structures
+      if (Array.isArray(res.data)) {
+        setRoles(res.data);
+      } else if (res.data.roles && Array.isArray(res.data.roles)) {
+        setRoles(res.data.roles);
+      } else {
+        setRoles([]);
+      }
+    } catch (error) {
+      console.error("Error loading roles:", error);
+      setRoles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  loadRoles();
+}, []);
+```
+
+**Error Handling**:
+```javascript
+const submitForm = async () => {
+  setIsSubmitting(true);
+  setErrors({});
+
+  try {
+    await onSubmit(formData);
+  } catch (error) {
+    // Extract validation errors from backend response
+    if (error.response && error.response.data && error.response.data.errors) {
+      setErrors(error.response.data.errors);
+    }
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+```
+
+---
+
+#### 19. `frontend/src/Components/Permissions.jsx`
+**Purpose**: Permission checking utility
+
+**Line-by-Line**:
+```javascript
+export const hasPermission = (permission) => {
+  // 1. Get user from localStorage
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  // 2. Check if user exists and has permissions array
+  if (!user || !Array.isArray(user.permissions)) return false;
+
+  // 3. Check if permission exists in user's permissions
+  return user.permissions.includes(permission);
+};
+```
+
+**Usage**: `hasPermission("USER_CREATE")` returns `true` or `false`
+
+**Note**: This is client-side only. Backend also validates permissions.
+
+---
+
+## 🎯 Implementation Strategy
+
+### How the Problem Was Approached:
+
+1. **Separation of Concerns**
+   - Backend: Business logic, data validation, security
+   - Frontend: UI, user interaction, state management
+
+2. **Layered Architecture**
+   - Routes → Middlewares → Controllers → Models
+   - Clear responsibility boundaries
+
+3. **Security-First Design**
+   - JWT authentication
+   - Permission-based authorization
+   - Input validation on both sides
+
+4. **User Experience Focus**
+   - Soft deletes (data recovery)
+   - Pagination (performance)
+   - Search/filter (usability)
+   - Real-time validation (feedback)
+
+### Why This Implementation Was Chosen:
+
+1. **JWT Tokens**
+   - Stateless authentication
+   - Scalable (no server-side session storage)
+   - Works well with REST APIs
+
+2. **MongoDB + Mongoose**
+   - Flexible schema (hobbies array, roles array)
+   - Easy relationships (populate)
+   - Good for rapid development
+
+3. **React + Vite**
+   - Fast development
+   - Component reusability
+   - Modern tooling
+
+4. **Server-Side Pagination**
+   - Handles large datasets
+   - Consistent performance
+   - Reduces data transfer
+
+5. **Soft Delete**
+   - Data recovery
+   - Audit trail
+   - Referential integrity
+
+### Alternative Designs/Patterns:
+
+1. **GraphQL Instead of REST**
+   - ✅ Flexible queries
+   - ✅ Reduced over-fetching
+   - ❌ More complex setup
+   - ❌ Caching challenges
+
+2. **Redis for Session Management**
+   - ✅ Faster than JWT for frequent checks
+   - ✅ Can revoke tokens
+   - ❌ Requires additional infrastructure
+   - ❌ Stateful (less scalable)
+
+3. **Role-Based Only (No Permissions)**
+   - ✅ Simpler
+   - ❌ Less flexible
+   - ❌ Can't mix permissions across roles
+
+4. **Client-Side Routing with React Router**
+   - ✅ Already implemented
+   - ✅ Good choice for SPA
+
+5. **State Management (Redux/Zustand)**
+   - ✅ Centralized state
+   - ✅ Better for complex apps
+   - ❌ Overkill for current size
+
+### Trade-offs:
+
+| Aspect | Current Choice | Alternative | Trade-off |
+|--------|---------------|-------------|-----------|
+| **Auth** | JWT | Sessions | JWT: Stateless but can't revoke easily |
+| **Pagination** | Server-side | Client-side | Server: Better for large data, more requests |
+| **Validation** | Both sides | Server only | Both: Better UX but code duplication |
+| **Soft Delete** | Flag-based | Hard delete | Soft: More storage, better recovery |
+| **Permissions** | In JWT + DB | DB only | JWT: Faster but can be stale |
+
+---
+
+## 🔄 Application Flow
+
+### Entry Point:
+1. **Backend**: `server.js` starts Express server
+2. **Frontend**: `main.jsx` renders `App.jsx`
+
+### Initialization Steps:
+
+**Backend**:
+```
+1. Load environment variables (.env)
+2. Connect to MongoDB (db.js)
+3. Initialize Express app
+4. Register middleware (CORS, JSON parser)
+5. Register routes
+6. Start listening on PORT
+```
+
+**Frontend**:
+```
+1. React app mounts
+2. App.jsx renders with BrowserRouter
+3. Routes defined
+4. User navigates to "/" (Login page)
+```
+
+### Request Flow Examples:
+
+#### 1. **Login Flow**:
+```
+User enters credentials
+  ↓
+Login.jsx: handleSubmit()
+  ↓
+AuthService.loginUser({ email, password })
+  ↓
+POST /api/auth/login
+  ↓
+authRoutes.js: router.post("/login", login)
+  ↓
+authcontroller.js: login()
+  ↓
+  ├─ Validate input
+  ├─ Find user in DB
+  ├─ Check password (bcrypt)
+  ├─ Generate JWT token
+  ├─ Collect permissions
+  └─ Return { token, user }
+  ↓
+Login.jsx: Store in localStorage
+  ↓
+Navigate to /dashboard or /home
+```
+
+#### 2. **Get Users Flow**:
+```
+User navigates to /users
+  ↓
+ProRoute checks authentication & permission
+  ↓
+User.jsx: loadUsers()
+  ↓
+UserService.fet
