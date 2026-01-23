@@ -30,4 +30,4 @@ JSON data for testing creating role api in postman
 bcryptjs
 
 const bcrypt = require('bcryptjs');
-bcrypt.hashSync('gg123', 10);
+bcrypt.hashSync('Admin@123', 10);

@@ -10,6 +10,7 @@ const Role = require("./models/Role");
 const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
+const permissionRoutes = require('./routes/permissionRoutes')
 
 
 
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/permissions",permissionRoutes)
 
 // Test route
 app.get("/", (req, res) => {

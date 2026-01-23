@@ -5,8 +5,8 @@ import ProRoute from "./routes/ProRoutes";
 import Users from "./pages/User";
 import Roles from "./pages/Roles";
 import Home from "./pages/Home";
+import Permissions from './pages/Permissions'
 import "./App.css";
-
 
 function App() {
   return (
@@ -46,6 +46,14 @@ function App() {
           element={
             <ProRoute requiredPermission="ROLE_VIEW">
               <Roles />
+            </ProRoute>
+          }
+        />
+        <Route
+          path="/permissions"
+          element={
+            <ProRoute requiredPermission="PERMISSION_VIEW">
+              <Permissions />
             </ProRoute>
           }
         />
