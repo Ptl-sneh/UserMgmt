@@ -30,25 +30,56 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 5. Generate token
-    const token = jwt.sign(
-      {
-        userId: user._id,
-        roles: user.roles.map((role) => role.name),
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" },
-    );
-
-    // Collect permissions from roles
-    let permissions = [];
+    // 5. Aggregate permissions from all active roles
+    let aggregatedPermissions = [];
 
     user.roles.forEach((role) => {
       if (role.status === "Active") {
-        permissions.push(...role.permissions);
+        // Merge permissions from each role
+        role.permissions.forEach((perm) => {
+          const existingModule = aggregatedPermissions.find(
+            (p) => p.moduleName === perm.moduleName
+          );
+
+          if (existingModule) {
+            // Merge actions (avoid duplicates)
+            perm.actions.forEach((action) => {
+              if (!existingModule.actions.includes(action)) {
+                existingModule.actions.push(action);
+              }
+            });
+
+            // Merge nested permissions (avoid duplicates)
+            perm.nestedPermissions.forEach((nestedPerm) => {
+              if (!existingModule.nestedPermissions.includes(nestedPerm)) {
+                existingModule.nestedPermissions.push(nestedPerm);
+              }
+            });
+          } else {
+            // Add new module
+            aggregatedPermissions.push({
+              moduleName: perm.moduleName,
+              actions: [...perm.actions],
+              nestedPermissions: [...perm.nestedPermissions],
+            });
+          }
+        });
       }
     });
 
+    // 6. Generate token
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        roles: user.roles.map((role) => role.name),
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    // 7. Send response with structured permissions
     res.json({
       token,
       user: {
@@ -56,11 +87,12 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         roles: user.roles.map((role) => role.name),
-        permissions,
+        permissions: aggregatedPermissions, // Now contains structured permissions
       },
     });
     
   } catch (error) {
+    console.error("Login error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };

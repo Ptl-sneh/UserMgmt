@@ -1,20 +1,5 @@
 const mongoose = require("mongoose");
 
-const permissionSchema = new mongoose.Schema({
-  module: {
-    type: String, // USER, ROLE
-    required: true,
-  },
-  actions: {
-    type: [String], // LIST, CREATE, UPDATE, DELETE
-    default: [],
-  },
-  extras: {
-    type: [String], // EXPORT, IMPORT
-    default: [],
-  },
-},{ _id: false });
-
 const roleSchema = new mongoose.Schema(
   {
     name: {
@@ -24,7 +9,23 @@ const roleSchema = new mongoose.Schema(
       trim: true,
     },
     permissions: {
-      type: [permissionSchema],
+      type: [
+        {
+          moduleName: {
+            type: String,
+            required: true,
+            trim: true,
+          },
+          actions: {
+            type: [String],
+            default: [],
+          },
+          nestedPermissions: {
+            type: [String],
+            default: [],
+          },
+        },
+      ],
       default: [],
     },
     status: {
@@ -32,14 +33,14 @@ const roleSchema = new mongoose.Schema(
       enum: ["Active", "Inactive"],
       default: "Active",
     },
-    isDeleted :{
-      type : Boolean,
-      default : false
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
-    deletedAt :{
-      type : Date,
-      default : null
-    }
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

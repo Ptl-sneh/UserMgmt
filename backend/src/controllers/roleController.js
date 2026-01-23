@@ -1,20 +1,53 @@
 const Role = require("../models/Role");
 
-const validatePermissions = (permissions = []) => {
-  if (!Array.isArray(permissions)) return false;
-
-  for (const perm of permissions) {
-    if (!perm.module || typeof perm.module !== "string") return false;
-    if (perm.actions && !Array.isArray(perm.actions)) return false;
-    if (perm.extras && !Array.isArray(perm.extras)) return false;
+// Helper function to validate permission structure
+const validatePermissions = (permissions) => {
+  if (!Array.isArray(permissions)) {
+    return { isValid: false, error: "Permissions must be an array" };
   }
 
-  return true;
+  for (const perm of permissions) {
+    if (!perm.moduleName || typeof perm.moduleName !== "string") {
+      return {
+        isValid: false,
+        error: "Each permission must have a moduleName",
+      };
+    }
+
+    if (perm.actions && !Array.isArray(perm.actions)) {
+      return { isValid: false, error: "Actions must be an array" };
+    }
+
+    if (perm.nestedPermissions && !Array.isArray(perm.nestedPermissions)) {
+      return { isValid: false, error: "Nested permissions must be an array" };
+    }
+
+    // Validate action strings
+    if (perm.actions) {
+      for (const action of perm.actions) {
+        if (typeof action !== "string") {
+          return { isValid: false, error: "Actions must be strings" };
+        }
+      }
+    }
+
+    // Validate nested permission strings
+    if (perm.nestedPermissions) {
+      for (const nestedPerm of perm.nestedPermissions) {
+        if (typeof nestedPerm !== "string") {
+          return {
+            isValid: false,
+            error: "Nested permissions must be strings",
+          };
+        }
+      }
+    }
+  }
+
+  return { isValid: true };
 };
 
-
 // CREATE ROLE
-
 const createRole = async (req, res) => {
   try {
     const { name, permissions, status } = req.body;
@@ -23,10 +56,12 @@ const createRole = async (req, res) => {
       return res.status(400).json({ message: "Role name is required" });
     }
 
-    if (permissions && !validatePermissions(permissions)) {
-      return res.status(400).json({
-        message: "Invalid permission structure",
-      });
+    // Validate permissions structure if provided
+    if (permissions) {
+      const validation = validatePermissions(permissions);
+      if (!validation.isValid) {
+        return res.status(400).json({ message: validation.error });
+      }
     }
 
     const existingRole = await Role.findOne({
@@ -39,26 +74,27 @@ const createRole = async (req, res) => {
     }
 
     const role = await Role.create({
-      name: name.trim(),
+      name,
       permissions: permissions || [],
       status: status || "Active",
     });
 
     res.status(201).json(role);
   } catch (error) {
-    console.error("Create role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET ROLES (Pagination + Search)
-
+// GET ALL ROLES (Pagination + Search + Sorting)
 const getRoles = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+
     const search = req.query.search || "";
+    const sortBy = req.query.sortBy || "createdAt";
+    const order = req.query.order === "asc" ? 1 : -1;
 
     const query = {
       isDeleted: false,
@@ -66,9 +102,9 @@ const getRoles = async (req, res) => {
     };
 
     const roles = await Role.find(query)
+      .sort({ [sortBy]: order })
       .skip(skip)
-      .limit(limit)
-      .sort({ createdAt: -1 });
+      .limit(limit);
 
     const total = await Role.countDocuments(query);
 
@@ -79,14 +115,11 @@ const getRoles = async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    console.error("Get roles error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-
 // GET ROLE BY ID
-
 const getRoleById = async (req, res) => {
   try {
     const role = await Role.findOne({
@@ -97,17 +130,13 @@ const getRoleById = async (req, res) => {
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
     }
-
     res.json(role);
   } catch (error) {
-    console.error("Get role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-
 // UPDATE ROLE
-
 const updateRole = async (req, res) => {
   try {
     const { name, permissions, status } = req.body;
@@ -121,28 +150,31 @@ const updateRole = async (req, res) => {
       return res.status(404).json({ message: "Role not found" });
     }
 
-    if (permissions && !validatePermissions(permissions)) {
-      return res.status(400).json({
-        message: "Invalid permission structure",
-      });
+    // Validate permissions structure if provided
+    if (permissions) {
+      const validation = validatePermissions(permissions);
+      if (!validation.isValid) {
+        return res.status(400).json({ message: validation.error });
+      }
     }
 
-    if (name) role.name = name.trim();
-    if (permissions) role.permissions = permissions;
-    if (status) role.status = status;
+    role.name = name || role.name;
+
+    // Update permissions only if provided
+    if (permissions !== undefined) {
+      role.permissions = permissions;
+    }
+
+    role.status = status || role.status;
 
     await role.save();
-
     res.json(role);
   } catch (error) {
-    console.error("Update role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-
-// DELETE ROLE (Soft delete)
-
+// DELETE ROLE
 const deleteRole = async (req, res) => {
   try {
     const role = await Role.findById(req.params.id);
@@ -152,14 +184,13 @@ const deleteRole = async (req, res) => {
     }
 
     role.isDeleted = true;
-    role.status = "Inactive";
     role.deletedAt = new Date();
+    role.status = "Inactive";
 
     await role.save();
 
     res.json({ message: "Role deleted successfully" });
   } catch (error) {
-    console.error("Delete role error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
