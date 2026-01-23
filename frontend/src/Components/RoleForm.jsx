@@ -1,41 +1,5 @@
 import { useEffect, useState } from "react";
-
-// Available modules with their possible actions and nested permissions
-const AVAILABLE_MODULES = [
-  {
-    moduleName: "UserManagement",
-    displayName: "User Management",
-    description: "Manage users and their accounts",
-    basicActions: ["create", "read", "update", "delete"],
-    nestedPermissions: [
-      "export",
-      "import",
-      "bulk_delete",
-      "view_sensitive_data",
-    ],
-  },
-  {
-    moduleName: "RoleManagement",
-    displayName: "Role Management",
-    description: "Manage roles and permissions",
-    basicActions: ["create", "read", "update", "delete"],
-    nestedPermissions: ["export", "clone", "assign_permissions"],
-  },
-  {
-    moduleName: "PermissionManagement",
-    displayName: "Permission Management",
-    description: "View and analyze permissions",
-    basicActions: ["read", "view", "analyze"],
-    nestedPermissions: ["export_report", "audit_logs", "generate_stats"],
-  },
-  {
-    moduleName: "Dashboard",
-    displayName: "Dashboard",
-    description: "System overview and analytics",
-    basicActions: ["view"],
-    nestedPermissions: ["refresh_status", "customize", "notifications"],
-  },
-];
+import { fetchModules } from "../services/ModuleService";
 
 const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -44,7 +8,68 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
     status: "Active",
   });
 
+  const [availableModules, setAvailableModules] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
+
+  // Fetch modules from backend on component mount
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        setLoading(true);
+        const modules = await fetchModules();
+        
+        // Transform the API response to match our expected format
+        const transformedModules = modules.map(module => ({
+          moduleName: module.moduleName,
+          displayName: formatModuleName(module.moduleName),
+          description: getModuleDescription(module.moduleName),
+          basicActions: module.actions.map(action => 
+            typeof action === 'object' ? action.name : action
+          ),
+          nestedPermissions: getDefaultNestedPermissions(module.moduleName),
+        }));
+        
+        setAvailableModules(transformedModules);
+      } catch (error) {
+        console.error("Error loading modules:", error);
+        // Fallback to empty array if API fails
+        setAvailableModules([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadModules();
+  }, []);
+
+  // Helper function to format module names
+  const formatModuleName = (moduleName) => {
+    // Convert "UserManagement" to "User Management"
+    return moduleName.replace(/([A-Z])/g, ' $1').trim();
+  };
+
+  // Helper function to get module descriptions
+  const getModuleDescription = (moduleName) => {
+    const descriptions = {
+      "Dashboard": "System overview and analytics",
+      "UserManagement": "Manage users and their accounts",
+      "RoleManagement": "Manage roles and permissions",
+      "PermissionManagement": "View and analyze permissions",
+    };
+    return descriptions[moduleName] || `Manage ${formatModuleName(moduleName)}`;
+  };
+
+  // Helper function to get default nested permissions for each module
+  const getDefaultNestedPermissions = (moduleName) => {
+    const nestedPermissions = {
+      "UserManagement": ["export", "import", "bulk_delete", "view_sensitive_data"],
+      "RoleManagement": ["export", "clone", "assign_permissions"],
+      "PermissionManagement": ["export_report", "audit_logs", "generate_stats"],
+      "Dashboard": ["refresh_status", "customize", "notifications"],
+    };
+    return nestedPermissions[moduleName] || [];
+  };
 
   // Initialize form with initialData
   useEffect(() => {
@@ -133,7 +158,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   // Select all basic actions for a module
   const selectAllBasicActions = (moduleName, e) => {
     e.stopPropagation(); // Prevent triggering module toggle
-    const module = AVAILABLE_MODULES.find((m) => m.moduleName === moduleName);
+    const module = availableModules.find((m) => m.moduleName === moduleName);
     if (!module) return;
 
     setFormData((prev) => {
@@ -194,6 +219,46 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
     });
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="px-8 py-6 border-b bg-slate-50">
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            {initialData ? "Edit Role" : "Create Role"}
+          </h2>
+        </div>
+        <div className="p-16 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <p className="mt-4 text-slate-500">Loading modules...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no modules loaded
+  if (availableModules.length === 0) {
+    return (
+      <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        <div className="px-8 py-6 border-b bg-slate-50">
+          <h2 className="text-2xl font-extrabold text-slate-900">
+            {initialData ? "Edit Role" : "Create Role"}
+          </h2>
+        </div>
+        <div className="p-16 text-center">
+          <p className="text-slate-500 mb-6">Unable to load modules. Please check your connection.</p>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-3 rounded-xl border border-slate-300 text-slate-700 font-semibold hover:bg-slate-50 transition"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
       {/* Header */}
@@ -206,6 +271,9 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
             ? "Update role details and permissions"
             : "Define a role and assign module-based permissions"}
         </p>
+        <div className="mt-2 text-sm text-slate-600">
+          <span className="font-medium">Loaded {availableModules.length} modules from backend</span>
+        </div>
       </div>
 
       {/* Form */}
@@ -254,7 +322,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
 
           <div className="space-y-6">
-            {AVAILABLE_MODULES.map((module) => {
+            {availableModules.map((module) => {
               const moduleFormData = getModuleFormData(module.moduleName);
               const isModuleSelected = formData.permissions.some(
                 (p) => p.moduleName === module.moduleName,
@@ -305,7 +373,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                   {isModuleSelected && (
                     <div className="mb-6">
                       <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                        Basic Actions
+                        Basic Actions ({module.basicActions.length})
                       </h4>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         {module.basicActions.map((action) => (
@@ -336,7 +404,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                   )}
 
                   {/* Nested Permissions */}
-                  {isModuleSelected && (
+                  {isModuleSelected && module.nestedPermissions.length > 0 && (
                     <div>
                       <h4 className="text-sm font-semibold text-slate-700 mb-3">
                         Nested Permissions (Extra Access)
@@ -429,7 +497,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                   (p) => p.actions.length > 0 || p.nestedPermissions.length > 0,
                 )
                 .map((perm) => {
-                  const module = AVAILABLE_MODULES.find(
+                  const module = availableModules.find(
                     (m) => m.moduleName === perm.moduleName,
                   );
                   return (

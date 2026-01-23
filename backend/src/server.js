@@ -5,14 +5,11 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const connectDB = require("./config/db");
-const User = require("./models/User");
-const Role = require("./models/Role");
 const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
-const permissionRoutes = require('./routes/permissionRoutes')
-
-
+const permissionRoutes = require('./routes/permissionRoutes');
+const moduleRoutes = require('./routes/moduleRoutes'); 
 
 const app = express();
 
@@ -23,11 +20,12 @@ connectDB();
 app.use(cors());
 app.use(express.json());
 
-// routes
+// Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/permissions",permissionRoutes)
+app.use("/api/permissions", permissionRoutes);
+app.use("/api/modules", moduleRoutes); 
 
 // Test route
 app.get("/", (req, res) => {

@@ -149,7 +149,7 @@ const Roles = () => {
               <div className="relative w-full max-w-4xl my-10 mx-4 z-60">
                 <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-hidden">
                   {/* Scrollable Content */}
-                  <div className="max-h-[90vh] overflow-y-auto p-8">
+                  <div className="max-h-[90vh] overflow-y-auto">
                     <RoleForm
                       initialData={editingRole._id ? editingRole : null}
                       onSubmit={editingRole._id ? handleUpdate : handleCreate}

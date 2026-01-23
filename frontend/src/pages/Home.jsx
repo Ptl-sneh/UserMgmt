@@ -1,4 +1,5 @@
 import { hasPermission, hasModulePermission } from "../Components/Permissions";
+import { fetchModules } from "../services/ModuleService";
 import AdminLayout from "./Admin";
 import { Link } from "react-router-dom";
 
@@ -8,11 +9,30 @@ const Home = () => {
   const userName = user.name || "User";
   const userRoles = user.roles || [];
   const userPermissions = user.permissions || [];
+  const [modules, setModules] = useState([]);
 
   // Count user's permissions
   const totalModules = userPermissions.length;
-  const totalActions = userPermissions.reduce((sum, module) => sum + module.actions.length, 0);
-  const totalNestedPermissions = userPermissions.reduce((sum, module) => sum + module.nestedPermissions.length, 0);
+  const totalActions = userPermissions.reduce(
+    (sum, module) => sum + module.actions.length,
+    0,
+  );
+  const totalNestedPermissions = userPermissions.reduce(
+    (sum, module) => sum + module.nestedPermissions.length,
+    0,
+  );
+
+  useEffect(() => {
+    const loadModules = async () => {
+      try {
+        const modulesData = await fetchModules();
+        setModules(modulesData);
+      } catch (error) {
+        console.error("Error loading modules:", error);
+      }
+    };
+    loadModules();
+  }, []);
 
   return (
     <AdminLayout>
@@ -33,12 +53,24 @@ const Home = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Your Roles</h3>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Your Roles
+                  </h3>
                   <p className="text-2xl font-extrabold text-slate-900 mt-1">
                     {userRoles.length}
                   </p>
@@ -52,12 +84,24 @@ const Home = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Module Access</h3>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Module Access
+                  </h3>
                   <div className="flex items-baseline gap-4 mt-1">
                     <p className="text-2xl font-extrabold text-slate-900">
                       {totalModules} modules
@@ -73,12 +117,24 @@ const Home = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                    />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900">Extra Permissions</h3>
+                  <h3 className="text-lg font-bold text-slate-900">
+                    Extra Permissions
+                  </h3>
                   <p className="text-2xl font-extrabold text-slate-900 mt-1">
                     {totalNestedPermissions}
                   </p>
@@ -95,10 +151,11 @@ const Home = () => {
             <h2 className="text-2xl font-bold text-slate-900 mb-6">
               Available Modules
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* User Management Card */}
-              {(hasPermission("USER_VIEW") || hasModulePermission("UserManagement", "read")) && (
+              {(hasPermission("USER_VIEW") ||
+                hasModulePermission("UserManagement", "read")) && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl">
@@ -139,7 +196,11 @@ const Home = () => {
                           Delete
                         </span>
                       )}
-                      {hasModulePermission("UserManagement", "export", true) && (
+                      {hasModulePermission(
+                        "UserManagement",
+                        "export",
+                        true,
+                      ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
                           Export
                         </span>
@@ -157,7 +218,8 @@ const Home = () => {
               )}
 
               {/* Role Management Card */}
-              {(hasPermission("ROLE_VIEW") || hasModulePermission("RoleManagement", "read")) && (
+              {(hasPermission("ROLE_VIEW") ||
+                hasModulePermission("RoleManagement", "read")) && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xl">
@@ -198,7 +260,11 @@ const Home = () => {
                           Delete
                         </span>
                       )}
-                      {hasModulePermission("RoleManagement", "export", true) && (
+                      {hasModulePermission(
+                        "RoleManagement",
+                        "export",
+                        true,
+                      ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
                           Export
                         </span>
@@ -216,7 +282,8 @@ const Home = () => {
               )}
 
               {/* Permission Management Card */}
-              {(hasPermission("PERMISSION_VIEW") || hasModulePermission("PermissionManagement", "read")) && (
+              {(hasPermission("PERMISSION_VIEW") ||
+                hasModulePermission("PermissionManagement", "read")) && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-xl">
@@ -242,12 +309,19 @@ const Home = () => {
                           View
                         </span>
                       )}
-                      {hasModulePermission("PermissionManagement", "analyze") && (
+                      {hasModulePermission(
+                        "PermissionManagement",
+                        "analyze",
+                      ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-cyan-100 text-cyan-700 font-semibold">
                           Analyze
                         </span>
                       )}
-                      {hasModulePermission("PermissionManagement", "export_report", true) && (
+                      {hasModulePermission(
+                        "PermissionManagement",
+                        "export_report",
+                        true,
+                      ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-cyan-100 text-cyan-700 font-semibold">
                           Export Reports
                         </span>
@@ -265,7 +339,8 @@ const Home = () => {
               )}
 
               {/* Dashboard Card */}
-              {(hasPermission("DASHBOARD_VIEW") || hasModulePermission("Dashboard", "view")) && (
+              {(hasPermission("DASHBOARD_VIEW") ||
+                hasModulePermission("Dashboard", "view")) && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xl">
@@ -291,7 +366,11 @@ const Home = () => {
                           View
                         </span>
                       )}
-                      {hasModulePermission("Dashboard", "refresh_status", true) && (
+                      {hasModulePermission(
+                        "Dashboard",
+                        "refresh_status",
+                        true,
+                      ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
                           Refresh Status
                         </span>
@@ -316,23 +395,26 @@ const Home = () => {
           </div>
 
           {/* Empty State */}
-          {!hasPermission("USER_VIEW") && !hasPermission("ROLE_VIEW") && 
-           !hasModulePermission("UserManagement", "read") && !hasModulePermission("RoleManagement", "read") && (
-            <div className="mt-16 max-w-xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-10 text-center">
-              <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                No Access Assigned
-              </h3>
-              <p className="text-slate-500 mb-6">
-                You currently do not have permissions to view any modules.
-                Please contact your administrator.
-              </p>
-              <div className="bg-slate-50 rounded-xl p-4">
-                <p className="text-sm text-slate-600">
-                  Your current permissions: {JSON.stringify(userPermissions, null, 2)}
+          {!hasPermission("USER_VIEW") &&
+            !hasPermission("ROLE_VIEW") &&
+            !hasModulePermission("UserManagement", "read") &&
+            !hasModulePermission("RoleManagement", "read") && (
+              <div className="mt-16 max-w-xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-10 text-center">
+                <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                  No Access Assigned
+                </h3>
+                <p className="text-slate-500 mb-6">
+                  You currently do not have permissions to view any modules.
+                  Please contact your administrator.
                 </p>
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <p className="text-sm text-slate-600">
+                    Your current permissions:{" "}
+                    {JSON.stringify(userPermissions, null, 2)}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </AdminLayout>
