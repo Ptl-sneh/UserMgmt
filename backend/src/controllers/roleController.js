@@ -1,91 +1,55 @@
+const mongoose = require("mongoose");
 const Role = require("../models/Role");
+const Module = require("../models/Modules");
 
-// Helper function to validate permission structure
-const validatePermissions = (permissions) => {
-  if (!Array.isArray(permissions)) {
-    return { isValid: false, error: "Permissions must be an array" };
-  }
+/* ---------------- CREATE ROLE ---------------- */
 
-  for (const perm of permissions) {
-    if (!perm.moduleName || typeof perm.moduleName !== "string") {
-      return {
-        isValid: false,
-        error: "Each permission must have a moduleName",
-      };
-    }
-
-    if (perm.actions && !Array.isArray(perm.actions)) {
-      return { isValid: false, error: "Actions must be an array" };
-    }
-
-    if (perm.nestedPermissions && !Array.isArray(perm.nestedPermissions)) {
-      return { isValid: false, error: "Nested permissions must be an array" };
-    }
-
-    // Validate action strings
-    if (perm.actions) {
-      for (const action of perm.actions) {
-        if (typeof action !== "string") {
-          return { isValid: false, error: "Actions must be strings" };
-        }
-      }
-    }
-
-    // Validate nested permission strings
-    if (perm.nestedPermissions) {
-      for (const nestedPerm of perm.nestedPermissions) {
-        if (typeof nestedPerm !== "string") {
-          return {
-            isValid: false,
-            error: "Nested permissions must be strings",
-          };
-        }
-      }
-    }
-  }
-
-  return { isValid: true };
-};
-
-// CREATE ROLE
 const createRole = async (req, res) => {
   try {
-    const { name, permissions, status } = req.body;
+    const { name, permissions = [], status = "Active" } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Role name is required" });
     }
 
-    // Validate permissions structure if provided
-    if (permissions) {
-      const validation = validatePermissions(permissions);
-      if (!validation.isValid) {
-        return res.status(400).json({ message: validation.error });
-      }
+    if (!Array.isArray(permissions)) {
+      return res.status(400).json({ message: "Permissions must be an array" });
     }
 
-    const existingRole = await Role.findOne({
-      name,
-      isDeleted: false,
-    });
+    // Validate ObjectIds
+    const invalidIds = permissions.filter(
+      id => !mongoose.Types.ObjectId.isValid(id)
+    );
 
+    if (invalidIds.length > 0) {
+      return res.status(400).json({ message: "Invalid permission id provided" });
+    }
+
+    // Validate permissions exist
+    const count = await Module.countDocuments({ _id: { $in: permissions } });
+    if (count !== permissions.length) {
+      return res.status(400).json({ message: "One or more permissions not found" });
+    }
+
+    const existingRole = await Role.findOne({ name, isDeleted: false });
     if (existingRole) {
       return res.status(400).json({ message: "Role already exists" });
     }
 
     const role = await Role.create({
       name,
-      permissions: permissions || [],
-      status: status || "Active",
+      permissions,
+      status,
     });
 
-    res.status(201).json(role);
+    return res.status(201).json(role);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET ALL ROLES (Pagination + Search + Sorting)
+/* ---------------- GET ROLES ---------------- */
+
 const getRoles = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -102,41 +66,45 @@ const getRoles = async (req, res) => {
     };
 
     const roles = await Role.find(query)
+      .populate("permissions", "moduleName actions")
       .sort({ [sortBy]: order })
       .skip(skip)
       .limit(limit);
 
     const total = await Role.countDocuments(query);
 
-    res.json({
+    return res.json({
       roles,
       total,
       page,
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// GET ROLE BY ID
+/* ---------------- GET ROLE BY ID ---------------- */
+
 const getRoleById = async (req, res) => {
   try {
     const role = await Role.findOne({
       _id: req.params.id,
       isDeleted: false,
-    });
+    }).populate("permissions", "moduleName actions");
 
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
     }
-    res.json(role);
+
+    return res.json(role);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// UPDATE ROLE
+/* ---------------- UPDATE ROLE ---------------- */
+
 const updateRole = async (req, res) => {
   try {
     const { name, permissions, status } = req.body;
@@ -150,31 +118,39 @@ const updateRole = async (req, res) => {
       return res.status(404).json({ message: "Role not found" });
     }
 
-    // Validate permissions structure if provided
-    if (permissions) {
-      const validation = validatePermissions(permissions);
-      if (!validation.isValid) {
-        return res.status(400).json({ message: validation.error });
-      }
-    }
-
-    role.name = name || role.name;
-
-    // Update permissions only if provided
     if (permissions !== undefined) {
+      if (!Array.isArray(permissions)) {
+        return res.status(400).json({ message: "Permissions must be an array" });
+      }
+
+      const invalidIds = permissions.filter(
+        id => !mongoose.Types.ObjectId.isValid(id)
+      );
+
+      if (invalidIds.length > 0) {
+        return res.status(400).json({ message: "Invalid permission id provided" });
+      }
+
+      const count = await Module.countDocuments({ _id: { $in: permissions } });
+      if (count !== permissions.length) {
+        return res.status(400).json({ message: "One or more permissions not found" });
+      }
+
       role.permissions = permissions;
     }
 
-    role.status = status || role.status;
+    if (name) role.name = name;
+    if (status) role.status = status;
 
     await role.save();
-    res.json(role);
+    return res.json(role);
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
-// DELETE ROLE
+/* ---------------- DELETE ROLE ---------------- */
+
 const deleteRole = async (req, res) => {
   try {
     const role = await Role.findById(req.params.id);
@@ -188,10 +164,9 @@ const deleteRole = async (req, res) => {
     role.status = "Inactive";
 
     await role.save();
-
-    res.json({ message: "Role deleted successfully" });
+    return res.json({ message: "Role deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

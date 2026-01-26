@@ -8,26 +8,13 @@ const roleSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
-    permissions: {
-      type: [
-        {
-          moduleName: {
-            type: String,
-            required: true,
-            trim: true,
-          },
-          actions: {
-            type: [String],
-            default: [],
-          },
-          nestedPermissions: {
-            type: [String],
-            default: [],
-          },
-        },
-      ],
-      default: [],
-    },
+    permissions: [
+      {
+        type : mongoose.Schema.Types.ObjectId,
+        ref : "Modules",
+        required : true
+      }
+    ],
     status: {
       type: String,
       enum: ["Active", "Inactive"],

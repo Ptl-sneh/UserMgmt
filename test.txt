@@ -31,3 +31,10 @@ bcryptjs
 
 const bcrypt = require('bcryptjs');
 bcrypt.hashSync('Admin@123', 10);
+
+
+Tasks to do
+
+1. update db, use object id for data mapping
+2. make a constant file and add the static data in it.
+3. clean up the unnecessary code.
