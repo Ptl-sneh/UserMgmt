@@ -146,7 +146,7 @@ const createUser = async (req, res) => {
   }
 };
 
-// GET USERS (Pagination + Search + Sorting + Status Filter) - BACKEND HANDLED
+// GET USERS (Pagination + Search + Sorting + Status Filter) - USING AGGREGATION
 const getUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -158,14 +158,14 @@ const getUsers = async (req, res) => {
     const order = req.query.order === "asc" ? 1 : -1;
     const statusFilter = req.query.status || "";
 
-    // Build query object
-    const query = {
+    // Build match conditions for aggregation
+    const matchConditions = {
       isDeleted: false,
     };
 
     // Add search condition (search in name and email)
     if (search) {
-      query.$or = [
+      matchConditions.$or = [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
@@ -173,20 +173,61 @@ const getUsers = async (req, res) => {
 
     // Add status filter if provided
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      query.status = statusFilter;
+      matchConditions.status = statusFilter;
     }
 
-    // Build sort object
-    const sortObject = {};
-    sortObject[sortBy] = order;
+    // Aggregation pipeline
+    const pipeline = [
+      // Stage 1: Match documents based on filters
+      {
+        $match: matchConditions,
+      },
+      // Stage 2: Lookup roles from roles collection
+      {
+        $lookup: {
+          from: "roles",
+          localField: "roles",
+          foreignField: "_id",
+          as: "roles",
+        },
+      },
+      // Stage 3: Sort documents
+      {
+        $sort: { [sortBy]: order },
+      },
+      // Stage 4: Use facet to get both paginated results and total count
+      {
+        $facet: {
+          // Paginated results
+          paginatedResults: [
+            { $skip: skip },
+            { $limit: limit },
+          ],
+          // Total count
+          totalCount: [
+            {
+              $count: "count",
+            },
+          ],
+        },
+      },
+      // Stage 5: Reshape the output
+      {
+        $project: {
+          users: "$paginatedResults",
+          total: {
+            $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0],
+          },
+        },
+      },
+    ];
 
-    const users = await User.find(query)
-      .populate("roles")
-      .sort(sortObject)
-      .skip(skip)
-      .limit(limit);
+    const result = await User.aggregate(pipeline);
 
-    const total = await User.countDocuments(query);
+    // Extract results from aggregation output
+    const aggregationResult = result[0] || { users: [], total: 0 };
+    const users = aggregationResult.users || [];
+    const total = aggregationResult.total || 0;
 
     res.json({
       users,
@@ -289,20 +330,21 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// EXPORT USERS (CSV) - BACKEND HANDLED WITH STREAMS
+// EXPORT USERS (CSV) - USING AGGREGATION
 const exportUsers = async (req, res) => {
   try {
     // Apply same filters as getUsers for consistency
     const search = req.query.search || "";
     const statusFilter = req.query.status || "";
 
-    const query = {
+    // Build match conditions for aggregation
+    const matchConditions = {
       isDeleted: false,
     };
 
     // Add search condition
     if (search) {
-      query.$or = [
+      matchConditions.$or = [
         { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
@@ -310,29 +352,99 @@ const exportUsers = async (req, res) => {
 
     // Add status filter
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      query.status = statusFilter;
+      matchConditions.status = statusFilter;
     }
 
-    // Fetch all users matching the query (no pagination for export)
-    const users = await User.find(query).populate("roles");
+    // Aggregation pipeline
+    const pipeline = [
+      // Stage 1: Match documents based on filters
+      {
+        $match: matchConditions,
+      },
+      // Stage 2: Lookup roles from roles collection
+      {
+        $lookup: {
+          from: "roles",
+          localField: "roles",
+          foreignField: "_id",
+          as: "roles",
+        },
+      },
+      // Stage 3: Project and transform data for CSV
+      {
+        $project: {
+          name: 1,
+          email: 1,
+          status: 1,
+          hobbies: 1,
+          createdAt: 1,
+          roles: {
+            $map: {
+              input: "$roles",
+              as: "role",
+              in: "$$role.name",
+            },
+          },
+        },
+      },
+      // Stage 4: Add formatted fields for CSV
+      {
+        $addFields: {
+          rolesString: {
+            $reduce: {
+              input: "$roles",
+              initialValue: "",
+              in: {
+                $cond: {
+                  if: { $eq: ["$$value", ""] },
+                  then: "$$this",
+                  else: { $concat: ["$$value", ", ", "$$this"] },
+                },
+              },
+            },
+          },
+          hobbiesString: {
+            $reduce: {
+              input: { $ifNull: ["$hobbies", []] },
+              initialValue: "",
+              in: {
+                $cond: {
+                  if: { $eq: ["$$value", ""] },
+                  then: "$$this",
+                  else: { $concat: ["$$value", ", ", "$$this"] },
+                },
+              },
+            },
+          },
+          createdAtFormatted: {
+            $dateToString: {
+              format: "%m/%d/%Y",
+              date: "$createdAt",
+            },
+          },
+        },
+      },
+      // Stage 5: Final projection for CSV format
+      {
+        $project: {
+          name: 1,
+          email: 1,
+          status: 1,
+          roles: "$rolesString",
+          hobbies: "$hobbiesString",
+          createdAt: "$createdAtFormatted",
+        },
+      },
+    ];
 
-    // Transform data for CSV
-    const data = users.map((user) => ({
-      name: user.name,
-      email: user.email,
-      status: user.status,
-      roles: user.roles.map((r) => r.name).join(", "),
-      hobbies: user.hobbies.join(", "),
-      createdAt: user.createdAt
-        ? new Date(user.createdAt).toLocaleDateString()
-        : "",
-    }));
+    // Execute aggregation
+    const users = await User.aggregate(pipeline);
 
     // Generate CSV
     const parser = new Parser({
       fields: ["name", "email", "status", "roles", "hobbies", "createdAt"],
     });
-    const csv = parser.parse(data);
+    const csv = parser.parse(users);
 
     // Set headers for file download
     res.header("Content-Type", "text/csv");

@@ -20,10 +20,12 @@ export const hasModulePermission = (moduleName, action, isNested = false) => {
   if (!modulePermission) return false;
 
   if (isNested) {
-    return modulePermission.nestedPermissions.includes(action);
+    return Array.isArray(modulePermission.nestedPermissions) && 
+           modulePermission.nestedPermissions.includes(action);
   }
 
-  return modulePermission.actions.includes(action);
+  return Array.isArray(modulePermission.actions) && 
+         modulePermission.actions.includes(action);
 };
 
 export const hasPermission = (permission) => {

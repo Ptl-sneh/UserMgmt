@@ -9,7 +9,7 @@ const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
 const permissionRoutes = require('./routes/permissionRoutes');
-const moduleRoutes = require('./routes/moduleRoutes'); 
+const moduleRoutes = require('./routes/moduleRoute'); 
 
 const app = express();
 

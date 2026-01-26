@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { hasPermission, hasModulePermission } from "../Components/Permissions";
 import { fetchModules } from "../services/ModuleService";
 import AdminLayout from "./Admin";
@@ -198,7 +199,7 @@ const Home = () => {
                       )}
                       {hasModulePermission(
                         "UserManagement",
-                        "export",
+                        "Export CSV",
                         true,
                       ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
@@ -262,7 +263,7 @@ const Home = () => {
                       )}
                       {hasModulePermission(
                         "RoleManagement",
-                        "export",
+                        "Export CSV",
                         true,
                       ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
@@ -368,8 +369,8 @@ const Home = () => {
                       )}
                       {hasModulePermission(
                         "Dashboard",
-                        "refresh_status",
-                        true,
+                        "refresh status",
+                        false,
                       ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
                           Refresh Status

@@ -40,6 +40,11 @@ const validateForm = (data, isEdit = false) => {
     }
   }
 
+  // Roles - must select at least one role
+  if (!data.roles || data.roles.length === 0) {
+    errors.roles = "Please select a role";
+  }
+
   return errors;
 };
 
@@ -48,7 +53,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     name: "",
     email: "",
     password: "",
-    roles: [],
+    roles: [], // Will contain single role ID as array for backend compatibility
     hobbies: [],
     status: "Active",
   });
@@ -68,11 +73,13 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
   /* ================= EFFECTS ================= */
   useEffect(() => {
     if (initialData && initialData._id) {
+      // Get first role if multiple exist (for backward compatibility)
+      const userRoles = initialData.roles?.map((r) => r._id) || [];
       setFormData({
         name: initialData.name || "",
         email: initialData.email || "",
         password: "",
-        roles: initialData.roles?.map((r) => r._id) || [],
+        roles: userRoles.length > 0 ? [userRoles[0]] : [], // Only first role
         hobbies: initialData.hobbies || [],
         status: initialData.status || "Active",
       });
@@ -120,6 +127,14 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
         : [...formData[name], value],
     });
     if (errors[name]) setErrors({ ...errors, [name]: "" });
+  };
+
+  const handleRoleChange = (roleId) => {
+    setFormData({
+      ...formData,
+      roles: [roleId], // Single role as array for backend compatibility
+    });
+    if (errors.roles) setErrors({ ...errors, roles: "" });
   };
 
   /* ================= SUBMIT ================= */
@@ -228,7 +243,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
         {/* Roles */}
         <div>
           <label className="block text-sm font-semibold text-slate-700 mb-3">
-            Roles
+            Role *
           </label>
           {loading ? (
             <div className="text-center py-4 text-slate-500">
@@ -240,29 +255,35 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 gap-3">
-              {roles.map((role) => (
-                <label
-                  key={role._id || role.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl transition cursor-pointer
-                    ${
-                      errors.roles
-                        ? "border border-rose-300 hover:border-rose-400"
-                        : "border border-slate-200 hover:border-indigo-300"
-                    }`}
-                >
-                  <input
-                    type="Checkbox" 
-                    checked={formData.roles.includes(role._id || role.id)}
-                    onChange={() =>
-                      handleCheckboxChange("roles", role._id || role.id)
-                    }
-                    className="w-4 h-4 text-indigo-600 rounded"
-                  />
-                  <span className="text-sm font-medium text-slate-700">
-                    {role.name}
-                  </span>
-                </label>
-              ))}
+              {roles.map((role) => {
+                const roleId = role._id || role.id;
+                const isSelected = formData.roles.includes(roleId);
+                return (
+                  <label
+                    key={roleId}
+                    className={`flex items-center gap-3 p-3 rounded-xl transition cursor-pointer
+                      ${
+                        errors.roles
+                          ? "border border-rose-300 hover:border-rose-400"
+                          : isSelected
+                          ? "border border-indigo-500 bg-indigo-50"
+                          : "border border-slate-200 hover:border-indigo-300"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value={roleId}
+                      checked={isSelected}
+                      onChange={() => handleRoleChange(roleId)}
+                      className="w-4 h-4 text-indigo-600"
+                    />
+                    <span className="text-sm font-medium text-slate-700">
+                      {role.name}
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           )}
           {errors.roles && (

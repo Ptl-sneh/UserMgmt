@@ -18,18 +18,18 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
       try {
         setLoading(true);
         const modules = await fetchModules();
-        
+
         // Transform the API response to match our expected format
-        const transformedModules = modules.map(module => ({
+        const transformedModules = modules.map((module) => ({
           moduleName: module.moduleName,
           displayName: formatModuleName(module.moduleName),
           description: getModuleDescription(module.moduleName),
-          basicActions: module.actions.map(action => 
-            typeof action === 'object' ? action.name : action
+          basicActions: module.actions.map((action) =>
+            typeof action === "object" ? action.name : action,
           ),
           nestedPermissions: getDefaultNestedPermissions(module.moduleName),
         }));
-        
+
         setAvailableModules(transformedModules);
       } catch (error) {
         console.error("Error loading modules:", error);
@@ -46,16 +46,16 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   // Helper function to format module names
   const formatModuleName = (moduleName) => {
     // Convert "UserManagement" to "User Management"
-    return moduleName.replace(/([A-Z])/g, ' $1').trim();
+    return moduleName.replace(/([A-Z])/g, " $1").trim();
   };
 
   // Helper function to get module descriptions
   const getModuleDescription = (moduleName) => {
     const descriptions = {
-      "Dashboard": "System overview and analytics",
-      "UserManagement": "Manage users and their accounts",
-      "RoleManagement": "Manage roles and permissions",
-      "PermissionManagement": "View and analyze permissions",
+      Dashboard: "System overview and analytics",
+      UserManagement: "Manage users and their accounts",
+      RoleManagement: "Manage roles and permissions",
+      PermissionManagement: "View and analyze permissions",
     };
     return descriptions[moduleName] || `Manage ${formatModuleName(moduleName)}`;
   };
@@ -63,10 +63,15 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   // Helper function to get default nested permissions for each module
   const getDefaultNestedPermissions = (moduleName) => {
     const nestedPermissions = {
-      "UserManagement": ["export", "import", "bulk_delete", "view_sensitive_data"],
-      "RoleManagement": ["export", "clone", "assign_permissions"],
-      "PermissionManagement": ["export_report", "audit_logs", "generate_stats"],
-      "Dashboard": ["refresh_status", "customize", "notifications"],
+      UserManagement: [
+        "export",
+        "import",
+        "bulk_delete",
+        "view_sensitive_data",
+      ],
+      RoleManagement: ["export", "clone", "assign_permissions"],
+      PermissionManagement: ["export_report", "audit_logs", "generate_stats"],
+      Dashboard: ["refresh_status", "customize", "notifications"],
     };
     return nestedPermissions[moduleName] || [];
   };
@@ -246,7 +251,9 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           </h2>
         </div>
         <div className="p-16 text-center">
-          <p className="text-slate-500 mb-6">Unable to load modules. Please check your connection.</p>
+          <p className="text-slate-500 mb-6">
+            Unable to load modules. Please check your connection.
+          </p>
           <button
             type="button"
             onClick={onCancel}
@@ -272,7 +279,9 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
             : "Define a role and assign module-based permissions"}
         </p>
         <div className="mt-2 text-sm text-slate-600">
-          <span className="font-medium">Loaded {availableModules.length} modules from backend</span>
+          <span className="font-medium">
+            Loaded {availableModules.length} modules from backend
+          </span>
         </div>
       </div>
 

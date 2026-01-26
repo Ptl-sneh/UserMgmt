@@ -11,10 +11,24 @@ const getAuthHeader = () => ({
 
 export const fetchModules = async () => {
   try {
-    const response = await axios.get(`${API_URL}/grouped`, getAuthHeader());
+    const token = localStorage.getItem("token");
+    if (!token) {
+      throw new Error("No authentication token found");
+    }
+
+    const response = await axios.get(`${API_URL}/grouped`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    console.log("Modules API Response:", response.data); // Debug log
     return response.data.data;
   } catch (error) {
-    console.error("Error fetching modules:", error);
+    console.error(
+      "Error fetching modules:",
+      error.response?.data || error.message,
+    );
     throw error;
   }
 };
