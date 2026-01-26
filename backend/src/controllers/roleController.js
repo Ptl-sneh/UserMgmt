@@ -6,9 +6,9 @@ const Module = require("../models/Modules");
 
 const createRole = async (req, res) => {
   try {
-    const { name, permissions = [], status = "Active" } = req.body;
+    const { roleName, permissions = [], status = "active" } = req.body;
 
-    if (!name) {
+    if (!roleName) {
       return res.status(400).json({ message: "Role name is required" });
     }
 
@@ -26,24 +26,36 @@ const createRole = async (req, res) => {
     }
 
     // Validate permissions exist
-    const count = await Module.countDocuments({ _id: { $in: permissions } });
+    const count = await Module.countDocuments({ 
+      _id: { $in: permissions }
+    });
+    
     if (count !== permissions.length) {
-      return res.status(400).json({ message: "One or more permissions not found" });
+      return res.status(400).json({ 
+        message: "One or more permissions not found" 
+      });
     }
 
-    const existingRole = await Role.findOne({ name, isDeleted: false });
+    // Check if role already exists
+    const existingRole = await Role.findOne({ roleName, isDeleted: false });
     if (existingRole) {
       return res.status(400).json({ message: "Role already exists" });
     }
 
+    // Create role with Module ObjectId references
     const role = await Role.create({
-      name,
-      permissions,
-      status,
+      roleName,
+      permissions, // Array of Module ObjectIds
+      status: status.toLowerCase(),
     });
 
-    return res.status(201).json(role);
+    // Populate and return
+    const populatedRole = await Role.findById(role._id)
+      .populate("permissions", "moduleName action");
+
+    return res.status(201).json(populatedRole);
   } catch (error) {
+    console.error("Create role error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -62,11 +74,15 @@ const getRoles = async (req, res) => {
 
     const query = {
       isDeleted: false,
-      name: { $regex: search, $options: "i" },
+      roleName: { $regex: search, $options: "i" },
     };
 
+    // Get roles and populate Module references
     const roles = await Role.find(query)
-      .populate("permissions", "moduleName actions")
+      .populate({
+        path: "permissions",
+        select: "moduleName action",
+      })
       .sort({ [sortBy]: order })
       .skip(skip)
       .limit(limit);
@@ -80,6 +96,7 @@ const getRoles = async (req, res) => {
       totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
+    console.error("Get roles error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -91,7 +108,10 @@ const getRoleById = async (req, res) => {
     const role = await Role.findOne({
       _id: req.params.id,
       isDeleted: false,
-    }).populate("permissions", "moduleName actions");
+    }).populate({
+      path: "permissions",
+      select: "moduleName action"
+    });
 
     if (!role) {
       return res.status(404).json({ message: "Role not found" });
@@ -99,6 +119,7 @@ const getRoleById = async (req, res) => {
 
     return res.json(role);
   } catch (error) {
+    console.error("Get role by ID error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -107,7 +128,7 @@ const getRoleById = async (req, res) => {
 
 const updateRole = async (req, res) => {
   try {
-    const { name, permissions, status } = req.body;
+    const { roleName, permissions, status } = req.body;
 
     const role = await Role.findOne({
       _id: req.params.id,
@@ -118,11 +139,13 @@ const updateRole = async (req, res) => {
       return res.status(404).json({ message: "Role not found" });
     }
 
+    // Update permissions if provided
     if (permissions !== undefined) {
       if (!Array.isArray(permissions)) {
         return res.status(400).json({ message: "Permissions must be an array" });
       }
 
+      // Validate ObjectIds
       const invalidIds = permissions.filter(
         id => !mongoose.Types.ObjectId.isValid(id)
       );
@@ -131,20 +154,32 @@ const updateRole = async (req, res) => {
         return res.status(400).json({ message: "Invalid permission id provided" });
       }
 
-      const count = await Module.countDocuments({ _id: { $in: permissions } });
+      // Validate permissions exist
+      const count = await Module.countDocuments({ 
+        _id: { $in: permissions }
+      });
+      
       if (count !== permissions.length) {
-        return res.status(400).json({ message: "One or more permissions not found" });
+        return res.status(400).json({ 
+          message: "One or more permissions not found" 
+        });
       }
 
       role.permissions = permissions;
     }
 
-    if (name) role.name = name;
-    if (status) role.status = status;
+    if (roleName) role.roleName = roleName;
+    if (status) role.status = status.toLowerCase();
 
     await role.save();
-    return res.json(role);
+
+    // Populate and return updated role
+    const updatedRole = await Role.findById(role._id)
+      .populate("permissions", "moduleName action");
+
+    return res.json(updatedRole);
   } catch (error) {
+    console.error("Update role error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };
@@ -161,11 +196,12 @@ const deleteRole = async (req, res) => {
 
     role.isDeleted = true;
     role.deletedAt = new Date();
-    role.status = "Inactive";
+    role.status = "inactive";
 
     await role.save();
     return res.json({ message: "Role deleted successfully" });
   } catch (error) {
+    console.error("Delete role error:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };

@@ -1,31 +1,41 @@
 const Role = require("../models/Role");
+const Module = require("../models/Modules");
 const mongoose = require("mongoose");
 
 // Get all modules with their permissions
 const getPermissionSummary = async (req, res) => {
   try {
-    // get all unique modules and count roles
+    // Get all unique modules and count roles
     const permissionSummary = await Role.aggregate([
       // Step 1: Only get active, non-deleted roles
       {
         $match: {
           isDeleted: false,
-          status: "Active"
+          status: "active"
         }
       },
-      // Step 2: Flatten the permissions array (make each permission its own document)
+      // Step 2: Lookup to populate permissions
       {
-        $unwind: "$permissions"
+        $lookup: {
+          from: "modules", // Collection name (lowercase, pluralized)
+          localField: "permissions",
+          foreignField: "_id",
+          as: "permissionDetails"
+        }
       },
-      // Step 3: Group by module name
+      // Step 3: Flatten the permissions array
+      {
+        $unwind: "$permissionDetails"
+      },
+      // Step 4: Group by module name
       {
         $group: {
-          _id: "$permissions.moduleName", // Group by module name
-          totalRoles: { $sum: 1 }, // Count how many roles have this module
-          roles: { $push: "$name" } // List which roles have this module
+          _id: "$permissionDetails.moduleName",
+          totalRoles: { $sum: 1 },
+          roles: { $push: "$roleName" }
         }
       },
-      // Step 4: Clean up the output format
+      // Step 5: Clean up the output format
       {
         $project: {
           moduleName: "$_id",
@@ -34,7 +44,7 @@ const getPermissionSummary = async (req, res) => {
           _id: 0
         }
       },
-      // Step 5: Sort alphabetically
+      // Step 6: Sort alphabetically
       {
         $sort: { moduleName: 1 }
       }
@@ -46,7 +56,7 @@ const getPermissionSummary = async (req, res) => {
       data: permissionSummary
     });
   } catch (error) {
-    console.error("Simple permission summary error:", error);
+    console.error("Permission summary error:", error);
     res.status(500).json({ 
       success: false, 
       message: "Server error" 
@@ -60,35 +70,48 @@ const getModulePermissions = async (req, res) => {
     const { moduleName } = req.params;
     
     const moduleData = await Role.aggregate([
-      // Step 1: Find roles that have this module
+      // Step 1: Find roles that have permissions
       {
         $match: {
-          isDeleted: false,
-          "permissions.moduleName": moduleName
+          isDeleted: false
         }
       },
-      // Step 2: Keep only the permission for this module
+      // Step 2: Lookup permissions
+      {
+        $lookup: {
+          from: "modules",
+          localField: "permissions",
+          foreignField: "_id",
+          as: "permissionDetails"
+        }
+      },
+      // Step 3: Filter for specific module
       {
         $addFields: {
           modulePermission: {
             $filter: {
-              input: "$permissions",
+              input: "$permissionDetails",
               as: "perm",
               cond: { $eq: ["$$perm.moduleName", moduleName] }
             }
           }
         }
       },
-      // Step 3: Flatten to get one document per role
+      // Step 4: Only keep roles that have this module
+      {
+        $match: {
+          "modulePermission.0": { $exists: true }
+        }
+      },
+      // Step 5: Flatten
       {
         $unwind: "$modulePermission"
       },
-      // Step 4: Format the response
+      // Step 6: Format the response
       {
         $project: {
-          roleName: "$name",
-          actions: "$modulePermission.actions",
-          nestedPermissions: "$modulePermission.nestedPermissions"
+          roleName: "$roleName",
+          action: "$modulePermission.action",
         }
       }
     ]);
@@ -107,35 +130,46 @@ const getModulePermissions = async (req, res) => {
   }
 };
 
-// SIMPLE: Check which users have a specific permission
+// Check which users have a specific permission
 const getUsersWithPermission = async (req, res) => {
   try {
     const { moduleName, action } = req.query;
     
-    // Simple way without complex aggregation
-    // Just find roles and then find users with those roles
+    // 1. Find modules that match
+    const modules = await Module.find({
+      moduleName: moduleName,
+      action: action,
+    }).select("_id");
     
-    // 1. Find roles that have this permission
+    if (modules.length === 0) {
+      return res.json({
+        success: true,
+        moduleName,
+        action,
+        roles: [],
+        users: [],
+        totalUsers: 0
+      });
+    }
+    
+    const moduleIds = modules.map(m => m._id);
+    
+    // 2. Find roles that have these modules
     const rolesWithPermission = await Role.find({
       isDeleted: false,
-      status: "Active",
-      permissions: {
-        $elemMatch: {
-          moduleName: moduleName,
-          actions: action
-        }
-      }
-    }).select("_id name");
+      status: "active",
+      permissions: { $in: moduleIds }
+    }).select("_id roleName");
     
     const roleIds = rolesWithPermission.map(role => role._id);
     
-    // 2. Find users who have these roles
+    // 3. Find users who have these roles
     const User = require("../models/User");
     const users = await User.find({
       isDeleted: false,
-      status: "Active",
-      roles: { $in: roleIds }
-    }).select("name email roles status");
+      status: "active",
+      roleId: { $in: roleIds }
+    }).select("userName email status");
     
     res.json({
       success: true,
@@ -155,7 +189,7 @@ const getUsersWithPermission = async (req, res) => {
 };
 
 module.exports = {
-  getPermissionSummary,  // Simple aggregation
-  getModulePermissions,  // Simple aggregation  
-  getUsersWithPermission // No aggregation - simple queries
+  getPermissionSummary,
+  getModulePermissions,
+  getUsersWithPermission
 };

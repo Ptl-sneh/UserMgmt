@@ -8,30 +8,27 @@ const validateUserData = (data, isUpdate = false) => {
   const errors = {};
 
   /* NAME VALIDATION */
-  if (!data.name || data.name.trim().length === 0) {
-    errors.name = "Name is required";
-  } else if (data.name.trim().length < 2) {
-    errors.name = "Name must be at least 2 characters long";
-  } else if (data.name.trim().length > 50) {
-    errors.name = "Name must not exceed 50 characters";
-  } else if (!/^[A-Za-z\s]+$/.test(data.name.trim())) {
-    errors.name = "Name must contain only alphabets and spaces";
+  if (!data.userName || data.userName.trim().length === 0) {
+    errors.userName = "Username is required";
+  } else if (data.userName.trim().length < 2) {
+    errors.userName = "Username must be at least 2 characters long";
+  } else if (data.userName.trim().length > 50) {
+    errors.userName = "Username must not exceed 50 characters";
   }
 
-  /* EMAIL VALIDATION  */
+  /* EMAIL VALIDATION */
   if (!isUpdate) {
     if (!data.email || data.email.trim().length === 0) {
       errors.email = "Email is required";
     } else {
-      const emailRegex =
-        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(data.email.trim())) {
         errors.email = "Please enter a valid email address";
       }
     }
   }
 
-  /* PASSWORD VALIDATION  */
+  /* PASSWORD VALIDATION */
   if (!isUpdate) {
     if (!data.password || data.password.length === 0) {
       errors.password = "Password is required";
@@ -39,56 +36,28 @@ const validateUserData = (data, isUpdate = false) => {
       errors.password = "Password must be at least 6 characters long";
     } else if (data.password.length > 100) {
       errors.password = "Password must not exceed 100 characters";
-    } else {
-      const passwordRegex =
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]+$/;
-
-      if (!passwordRegex.test(data.password)) {
-        errors.password =
-          "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character";
-      }
     }
   }
 
-  /* ROLES VALIDATION  */
-  if (data.roles !== undefined) {
-    if (!Array.isArray(data.roles)) {
-      errors.roles = "Roles must be an array";
-    } else if (
-      data.roles.some(
-        (role) => typeof role !== "string" || role.trim().length === 0
-      )
-    ) {
-      errors.roles = "Each role must be a valid non-empty value";
+  /* ROLE VALIDATION */
+  if (data.roleId !== undefined) {
+    if (typeof data.roleId !== "string" || data.roleId.trim().length === 0) {
+      errors.roleId = "Valid role ID is required";
     }
   }
 
-  /* HOBBIES VALIDATION  */
-  if (data.hobbies !== undefined) {
-    if (!Array.isArray(data.hobbies)) {
-      errors.hobbies = "Hobbies must be an array";
-    } else if (
-      data.hobbies.some(
-        (hobby) => typeof hobby !== "string" || hobby.trim().length === 0
-      )
-    ) {
-      errors.hobbies = "Each hobby must be a valid non-empty string";
-    }
-  }
-
-  /* STATUS VALIDATION  */
-  if (data.status && !["Active", "Inactive"].includes(data.status)) {
-    errors.status = "Status must be either Active or Inactive";
+  /* STATUS VALIDATION */
+  if (data.status && !["active", "inactive"].includes(data.status.toLowerCase())) {
+    errors.status = "Status must be either active or inactive";
   }
 
   return errors;
 };
 
-
 // CREATE USER (Admin)
 const createUser = async (req, res) => {
   try {
-    const { name, email, password, roles, hobbies, status } = req.body;
+    const { userName, email, password, roleId, status } = req.body;
 
     // Validate input
     const validationErrors = validateUserData(req.body, false);
@@ -113,17 +82,17 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Validate roles if provided
-    if (roles && roles.length > 0) {
-      const validRoles = await Role.find({
-        _id: { $in: roles },
+    // Validate role if provided
+    if (roleId) {
+      const validRole = await Role.findOne({
+        _id: roleId,
         isDeleted: false,
       });
 
-      if (validRoles.length !== roles.length) {
+      if (!validRole) {
         return res.status(400).json({
           message: "Validation failed",
-          errors: { roles: "One or more roles are invalid" },
+          errors: { roleId: "Role is invalid" },
         });
       }
     }
@@ -131,12 +100,11 @@ const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      name: name.trim(),
+      userName: userName.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      roles: roles || [],
-      hobbies: hobbies || [],
-      status: status || "Active",
+      roleId: roleId || null,
+      status: (status || "active").toLowerCase(),
     });
 
     res.status(201).json(user);
@@ -146,7 +114,7 @@ const createUser = async (req, res) => {
   }
 };
 
-// GET USERS (Pagination + Search + Sorting + Status Filter) - USING AGGREGATION
+// GET USERS (Pagination + Search + Sorting + Status Filter)
 const getUsers = async (req, res) => {
   try {
     const page = Number(req.query.page) || 1;
@@ -158,22 +126,22 @@ const getUsers = async (req, res) => {
     const order = req.query.order === "asc" ? 1 : -1;
     const statusFilter = req.query.status || "";
 
-    // Build match conditions for aggregation
+    // Build match conditions
     const matchConditions = {
       isDeleted: false,
     };
 
-    // Add search condition (search in name and email)
+    // Add search condition
     if (search) {
       matchConditions.$or = [
-        { name: { $regex: search, $options: "i" } },
+        { userName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
     }
 
     // Add status filter if provided
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      matchConditions.status = statusFilter;
+      matchConditions.status = statusFilter.toLowerCase();
     }
 
     // Aggregation pipeline
@@ -182,28 +150,33 @@ const getUsers = async (req, res) => {
       {
         $match: matchConditions,
       },
-      // Stage 2: Lookup roles from roles collection
+      // Stage 2: Lookup role from roles collection
       {
         $lookup: {
           from: "roles",
-          localField: "roles",
+          localField: "roleId",
           foreignField: "_id",
-          as: "roles",
+          as: "role",
         },
       },
-      // Stage 3: Sort documents
+      // Stage 3: Unwind role array
+      {
+        $unwind: {
+          path: "$role",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      // Stage 4: Sort documents
       {
         $sort: { [sortBy]: order },
       },
-      // Stage 4: Use facet to get both paginated results and total count
+      // Stage 5: Use facet to get both paginated results and total count
       {
         $facet: {
-          // Paginated results
           paginatedResults: [
             { $skip: skip },
             { $limit: limit },
           ],
-          // Total count
           totalCount: [
             {
               $count: "count",
@@ -211,7 +184,7 @@ const getUsers = async (req, res) => {
           ],
         },
       },
-      // Stage 5: Reshape the output
+      // Stage 6: Reshape the output
       {
         $project: {
           users: "$paginatedResults",
@@ -247,7 +220,7 @@ const getUserById = async (req, res) => {
     const user = await User.findOne({
       _id: req.params.id,
       isDeleted: false,
-    }).populate("roles");
+    }).populate("roleId");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -263,7 +236,7 @@ const getUserById = async (req, res) => {
 // UPDATE USER
 const updateUser = async (req, res) => {
   try {
-    const { name, roles, hobbies, status } = req.body;
+    const { userName, roleId, status } = req.body;
 
     // Validate input
     const validationErrors = validateUserData(req.body, true);
@@ -281,25 +254,24 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Validate roles if provided
-    if (roles && roles.length > 0) {
-      const validRoles = await Role.find({
-        _id: { $in: roles },
+    // Validate role if provided
+    if (roleId) {
+      const validRole = await Role.findOne({
+        _id: roleId,
         isDeleted: false,
       });
 
-      if (validRoles.length !== roles.length) {
+      if (!validRole) {
         return res.status(400).json({
           message: "Validation failed",
-          errors: { roles: "One or more roles are invalid" },
+          errors: { roleId: "Role is invalid" },
         });
       }
     }
 
-    user.name = name ? name.trim() : user.name;
-    user.roles = roles !== undefined ? roles : user.roles;
-    user.hobbies = hobbies !== undefined ? hobbies : user.hobbies;
-    user.status = status || user.status;
+    user.userName = userName ? userName.trim() : user.userName;
+    user.roleId = roleId !== undefined ? roleId : user.roleId;
+    user.status = status ? status.toLowerCase() : user.status;
 
     await user.save();
     res.json(user);
@@ -320,7 +292,7 @@ const deleteUser = async (req, res) => {
 
     user.isDeleted = true;
     user.deletedAt = new Date();
-    user.status = "Inactive";
+    user.status = "inactive";
     await user.save();
 
     res.json({ message: "User deleted successfully" });
@@ -330,14 +302,14 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// EXPORT USERS (CSV) - USING AGGREGATION
+// EXPORT USERS (CSV)
 const exportUsers = async (req, res) => {
   try {
     // Apply same filters as getUsers for consistency
     const search = req.query.search || "";
     const statusFilter = req.query.status || "";
 
-    // Build match conditions for aggregation
+    // Build match conditions
     const matchConditions = {
       isDeleted: false,
     };
@@ -345,14 +317,14 @@ const exportUsers = async (req, res) => {
     // Add search condition
     if (search) {
       matchConditions.$or = [
-        { name: { $regex: search, $options: "i" } },
+        { userName: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
     }
 
     // Add status filter
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      matchConditions.status = statusFilter;
+      matchConditions.status = statusFilter.toLowerCase();
     }
 
     // Aggregation pipeline
@@ -361,61 +333,35 @@ const exportUsers = async (req, res) => {
       {
         $match: matchConditions,
       },
-      // Stage 2: Lookup roles from roles collection
+      // Stage 2: Lookup role from roles collection
       {
         $lookup: {
           from: "roles",
-          localField: "roles",
+          localField: "roleId",
           foreignField: "_id",
-          as: "roles",
+          as: "role",
         },
       },
-      // Stage 3: Project and transform data for CSV
+      // Stage 3: Unwind role array
+      {
+        $unwind: {
+          path: "$role",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      // Stage 4: Project and transform data for CSV
       {
         $project: {
-          name: 1,
+          userName: 1,
           email: 1,
           status: 1,
-          hobbies: 1,
           createdAt: 1,
-          roles: {
-            $map: {
-              input: "$roles",
-              as: "role",
-              in: "$$role.name",
-            },
-          },
+          roleName: "$role.roleName",
         },
       },
-      // Stage 4: Add formatted fields for CSV
+      // Stage 5: Add formatted fields for CSV
       {
         $addFields: {
-          rolesString: {
-            $reduce: {
-              input: "$roles",
-              initialValue: "",
-              in: {
-                $cond: {
-                  if: { $eq: ["$$value", ""] },
-                  then: "$$this",
-                  else: { $concat: ["$$value", ", ", "$$this"] },
-                },
-              },
-            },
-          },
-          hobbiesString: {
-            $reduce: {
-              input: { $ifNull: ["$hobbies", []] },
-              initialValue: "",
-              in: {
-                $cond: {
-                  if: { $eq: ["$$value", ""] },
-                  then: "$$this",
-                  else: { $concat: ["$$value", ", ", "$$this"] },
-                },
-              },
-            },
-          },
           createdAtFormatted: {
             $dateToString: {
               format: "%m/%d/%Y",
@@ -424,14 +370,13 @@ const exportUsers = async (req, res) => {
           },
         },
       },
-      // Stage 5: Final projection for CSV format
+      // Stage 6: Final projection for CSV format
       {
         $project: {
-          name: 1,
+          userName: 1,
           email: 1,
           status: 1,
-          roles: "$rolesString",
-          hobbies: "$hobbiesString",
+          role: "$roleName",
           createdAt: "$createdAtFormatted",
         },
       },
@@ -442,7 +387,7 @@ const exportUsers = async (req, res) => {
 
     // Generate CSV
     const parser = new Parser({
-      fields: ["name", "email", "status", "roles", "hobbies", "createdAt"],
+      fields: ["userName", "email", "status", "role", "createdAt"],
     });
     const csv = parser.parse(users);
 

@@ -1,6 +1,8 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const Role = require("../models/Role");
+const Module = require("../models/Modules");
 
 const login = async (req, res) => {
   try {
@@ -14,7 +16,9 @@ const login = async (req, res) => {
     }
 
     // 2. Check user
-    const user = await User.findOne({ email }).populate("roles");
+    const user = await User.findOne({ email });
+    console.log(user)
+
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
@@ -30,64 +34,64 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 5. Aggregate permissions from all active roles
-    let aggregatedPermissions = [];
+    // 5. Get user's role and permissions
+    const role = await Role.findOne({ 
+      _id: user.roleId,
+      status: "Active"
+    }).populate("permissions");
+    console.log(user.roles[0])
+    
+    if (!role) {
+      return res.status(403).json({ message: "Role not found or inactive" });
+    }
 
-    user.roles.forEach((role) => {
-      if (role.status === "Active") {
-        // Merge permissions from each role
-        role.permissions.forEach((perm) => {
-          const existingModule = aggregatedPermissions.find(
-            (p) => p.moduleName === perm.moduleName
-          );
+    // 6. Aggregate permissions
+    const aggregatedPermissionsMap = new Map();
 
-          if (existingModule) {
-            // Merge actions (avoid duplicates)
-            perm.actions.forEach((action) => {
-              if (!existingModule.actions.includes(action)) {
-                existingModule.actions.push(action);
-              }
-            });
-
-            // Merge nested permissions (avoid duplicates)
-            perm.nestedPermissions.forEach((nestedPerm) => {
-              if (!existingModule.nestedPermissions.includes(nestedPerm)) {
-                existingModule.nestedPermissions.push(nestedPerm);
-              }
-            });
-          } else {
-            // Add new module
-            aggregatedPermissions.push({
-              moduleName: perm.moduleName,
-              actions: [...perm.actions],
-              nestedPermissions: [...perm.nestedPermissions],
-            });
-          }
+    // Process each permission from role
+    role.permissions.forEach((permission) => {
+      const moduleName = permission.moduleName;
+      const action = permission.action; // Changed from "actions" to "action"
+      
+      if (aggregatedPermissionsMap.has(moduleName)) {
+        // Module already exists, add action if not already present
+        const existing = aggregatedPermissionsMap.get(moduleName);
+        if (!existing.actions.includes(action)) {
+          existing.actions.push(action);
+        }
+      } else {
+        // Add new module
+        aggregatedPermissionsMap.set(moduleName, {
+          moduleName: moduleName,
+          actions: [action], // Single action as array
         });
       }
     });
 
-    // 6. Generate token
+    // Convert map to array
+    const aggregatedPermissions = Array.from(aggregatedPermissionsMap.values());
+
+    // 7. Generate token
     const token = jwt.sign(
       {
         userId: user._id,
-        name: user.name,
+        name: user.userName, // Changed from user.name to user.userName
         email: user.email,
-        roles: user.roles.map((role) => role.name),
+        role: role.roleName, // Changed from roles array to single role
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
-    // 7. Send response with structured permissions
+    // 8. Send response with structured permissions
     res.json({
       token,
       user: {
         id: user._id,
-        name: user.name,
+        name: user.userName, // Changed from user.name to user.userName
         email: user.email,
-        roles: user.roles.map((role) => role.name),
-        permissions: aggregatedPermissions, // Now contains structured permissions
+        role: role.roleName, // Single role instead of array
+        permissions: aggregatedPermissions,
       },
     });
     
