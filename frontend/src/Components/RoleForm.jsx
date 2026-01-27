@@ -4,11 +4,12 @@ import { fetchModules } from "../services/ModuleService";
 const RoleForm = ({ initialData, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
     name: "",
-    permissions: [],
+    permissions: [], // This will store selected module IDs
     status: "Active",
   });
 
   const [availableModules, setAvailableModules] = useState([]);
+  const [groupedModules, setGroupedModules] = useState({}); // Grouped by moduleName for display
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState({});
 
@@ -17,22 +18,43 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
     const loadModules = async () => {
       try {
         setLoading(true);
-        const modules = await fetchModules();
-
-        // Transform the API response to match our expected format
-        const transformedModules = modules.map((module) => ({
-          moduleName: module.moduleName,
-          displayName: formatModuleName(module.moduleName),
-          description: getModuleDescription(module.moduleName),
-          basicActions: module.actions.map((action) =>
-            typeof action === "object" ? action.name : action,
-          ),
+        // Fetch individual modules (not grouped)
+        const modules = await fetchModules(false); // false = get all individual modules
+        
+        console.log("Raw modules from API:", modules);
+        
+        // Group modules by moduleName for display
+        const grouped = {};
+        modules.forEach(module => {
+          if (!grouped[module.moduleName]) {
+            grouped[module.moduleName] = {
+              moduleName: module.moduleName,
+              displayName: formatModuleName(module.moduleName),
+              description: getModuleDescription(module.moduleName),
+              entries: [] // Array of individual module entries
+            };
+          }
+          grouped[module.moduleName].entries.push({
+            _id: module._id,
+            action: module.actions,
+            isActive: module.isActive
+          });
+        });
+        
+        setGroupedModules(grouped);
+        
+        // Convert grouped object to array for rendering
+        const modulesArray = Object.values(grouped).map(group => ({
+          moduleName: group.moduleName,
+          displayName: group.displayName,
+          description: group.description,
+          entries: group.entries
         }));
-
-        setAvailableModules(transformedModules);
+        
+        setAvailableModules(modulesArray);
+        
       } catch (error) {
         console.error("Error loading modules:", error);
-        // Fallback to empty array if API fails
         setAvailableModules([]);
       } finally {
         setLoading(false);
@@ -44,7 +66,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
 
   // Helper function to format module names
   const formatModuleName = (moduleName) => {
-    // Convert "UserManagement" to "User Management"
     return moduleName.replace(/([A-Z])/g, " $1").trim();
   };
 
@@ -59,126 +80,109 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
     return descriptions[moduleName] || `Manage ${formatModuleName(moduleName)}`;
   };
 
-
   // Initialize form with initialData
   useEffect(() => {
-    if (initialData) {
+    if (initialData && initialData._id) {
+      console.log("Initial role data:", initialData);
+      
+      // Backend sends array of module IDs in initialData.permissions
+      // We need to convert this to an array of selected module IDs
+      const selectedModuleIds = initialData.permissions?.map(p => p._id) || [];
+      
       setFormData({
         name: initialData.name || "",
-        permissions: initialData.permissions || [],
+        permissions: selectedModuleIds, // Array of module IDs
         status: initialData.status || "Active",
       });
     } else {
       setFormData({
         name: "",
-        permissions: [],
+        permissions: [], // Empty array of module IDs
         status: "Active",
       });
     }
     setErrors({});
   }, [initialData]);
 
-  // Toggle entire module selection
-  const toggleModule = (moduleName) => {
-    const existingModule = formData.permissions.find(
-      (p) => p.moduleName === moduleName,
-    );
-
-    if (existingModule) {
-      // Remove module
-      setFormData((prev) => ({
-        ...prev,
-        permissions: prev.permissions.filter(
-          (p) => p.moduleName !== moduleName,
-        ),
-      }));
-    } else {
-      // Add module with no permissions selected
-      setFormData((prev) => ({
-        ...prev,
-        permissions: [
-          ...prev.permissions,
-          {
-            moduleName,
-            actions: [],
-          },
-        ],
-      }));
-    }
-  };
-
-  // Toggle basic action within a module
-  const toggleAction = (moduleName, action) => {
+  // Toggle module permission selection
+  const togglePermission = (moduleId, action) => {
     setFormData((prev) => {
-      const permissions = prev.permissions.map((p) => {
-        if (p.moduleName !== moduleName) return p;
-
+      const currentPermissions = [...prev.permissions];
+      
+      if (currentPermissions.includes(moduleId)) {
+        // Remove permission
         return {
-          ...p,
-          actions: p.actions.includes(action)
-            ? p.actions.filter((a) => a !== action)
-            : [...p.actions, action],
+          ...prev,
+          permissions: currentPermissions.filter(id => id !== moduleId)
         };
-      });
-
-      return { ...prev, permissions };
-    });
-  };
-
-  // Toggle nested permission within a module
-  const toggleNestedPermission = (moduleName, nestedPerm) => {
-    setFormData((prev) => {
-      const permissions = prev.permissions.map((p) => {
-        if (p.moduleName !== moduleName) return p;
-
-        return {
-          ...p,
-          nestedPermissions: p.nestedPermissions.includes(nestedPerm)
-            ? p.nestedPermissions.filter((n) => n !== nestedPerm)
-            : [...p.nestedPermissions, nestedPerm],
-        };
-      });
-
-      return { ...prev, permissions };
-    });
-  };
-
-  // Select all basic actions for a module
-  const selectAllBasicActions = (moduleName, e) => {
-    e.stopPropagation(); // Prevent triggering module toggle
-    const module = availableModules.find((m) => m.moduleName === moduleName);
-    if (!module) return;
-
-    setFormData((prev) => {
-      const newPermissions = [...prev.permissions];
-      const moduleIndex = newPermissions.findIndex(
-        (p) => p.moduleName === moduleName,
-      );
-
-      if (moduleIndex === -1) {
-        // Add module with all basic actions
-        newPermissions.push({
-          moduleName,
-          actions: [...module.basicActions],
-        });
       } else {
-        // Replace all basic actions
-        newPermissions[moduleIndex].actions = [...module.basicActions];
+        // Add permission
+        return {
+          ...prev,
+          permissions: [...currentPermissions, moduleId]
+        };
       }
+    });
+  };
 
+  // Toggle all permissions for a module
+  const toggleAllPermissions = (moduleName, e) => {
+    e.stopPropagation();
+    const moduleGroup = groupedModules[moduleName];
+    if (!moduleGroup) return;
+
+    const moduleEntries = moduleGroup.entries;
+    const allModuleIds = moduleEntries.map(entry => entry._id);
+    const currentSelectedIds = formData.permissions;
+    
+    // Check if all permissions for this module are already selected
+    const allSelected = allModuleIds.every(id => currentSelectedIds.includes(id));
+    
+    setFormData((prev) => {
+      let newPermissions = [...prev.permissions];
+      
+      if (allSelected) {
+        // Remove all permissions for this module
+        newPermissions = newPermissions.filter(id => !allModuleIds.includes(id));
+      } else {
+        // Add all permissions for this module
+        allModuleIds.forEach(id => {
+          if (!newPermissions.includes(id)) {
+            newPermissions.push(id);
+          }
+        });
+      }
+      
       return { ...prev, permissions: newPermissions };
     });
   };
 
-  // Get current module data from form
-  const getModuleFormData = (moduleName) => {
-    return (
-      formData.permissions.find((p) => p.moduleName === moduleName) || {
-        moduleName,
-        actions: [],
-        nestedPermissions: [],
-      }
-    );
+  // Check if a specific permission is selected
+  const isPermissionSelected = (moduleId) => {
+    return formData.permissions.includes(moduleId);
+  };
+
+  // Check if all permissions for a module are selected
+  const areAllPermissionsSelected = (moduleName) => {
+    const moduleGroup = groupedModules[moduleName];
+    if (!moduleGroup) return false;
+    
+    const moduleEntries = moduleGroup.entries;
+    const allModuleIds = moduleEntries.map(entry => entry._id);
+    
+    return allModuleIds.length > 0 && 
+           allModuleIds.every(id => formData.permissions.includes(id));
+  };
+
+  // Check if any permission for a module is selected
+  const isAnyPermissionSelected = (moduleName) => {
+    const moduleGroup = groupedModules[moduleName];
+    if (!moduleGroup) return false;
+    
+    const moduleEntries = moduleGroup.entries;
+    const allModuleIds = moduleEntries.map(entry => entry._id);
+    
+    return allModuleIds.some(id => formData.permissions.includes(id));
   };
 
   const handleSubmit = (e) => {
@@ -195,15 +199,15 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
       return;
     }
 
-    // Filter out modules with no permissions selected
-    const filteredPermissions = formData.permissions.filter(
-      (perm) => perm.actions.length > 0,
-    );
+    // Prepare data for backend
+    const roleData = {
+      name: formData.name,
+      permissions: formData.permissions, // Already array of module IDs
+      status: formData.status
+    };
 
-    onSubmit({
-      ...formData,
-      permissions: filteredPermissions,
-    });
+    console.log("Submitting role data:", roleData);
+    onSubmit(roleData);
   };
 
   // Show loading state
@@ -234,7 +238,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
         </div>
         <div className="p-16 text-center">
           <p className="text-slate-500 mb-6">
-            Unable to load modules. Please check your connection.
+            No modules found. Please create modules first in the backend.
           </p>
           <button
             type="button"
@@ -262,7 +266,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
         </p>
         <div className="mt-2 text-sm text-slate-600">
           <span className="font-medium">
-            Loaded {availableModules.length} modules from backend
+            {formData.permissions.length} permissions selected across {availableModules.length} modules
           </span>
         </div>
       </div>
@@ -296,104 +300,78 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           )}
         </div>
 
-        {/* Module Selection */}
+        {/* Module Permissions */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <label className="block text-lg font-bold text-slate-900">
               Module Permissions
             </label>
             <div className="text-sm text-slate-500">
-              {
-                formData.permissions.filter(
-                  (p) => p.actions.length > 0 || p.nestedPermissions.length > 0,
-                ).length
-              }{" "}
-              modules selected
+              {formData.permissions.length} permissions selected
             </div>
           </div>
 
           <div className="space-y-6">
             {availableModules.map((module) => {
-              const moduleFormData = getModuleFormData(module.moduleName);
-              const isModuleSelected = formData.permissions.some(
-                (p) => p.moduleName === module.moduleName,
-              );
+              const isModulePartiallySelected = isAnyPermissionSelected(module.moduleName);
+              const isModuleFullySelected = areAllPermissionsSelected(module.moduleName);
 
               return (
                 <div
                   key={module.moduleName}
                   className={`border rounded-2xl p-6 transition-all ${
-                    isModuleSelected
+                    isModulePartiallySelected
                       ? "border-indigo-300 bg-indigo-50/50"
                       : "border-slate-200"
                   }`}
                 >
                   {/* Module Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isModuleSelected}
-                        onChange={() => toggleModule(module.moduleName)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-5 h-5 text-indigo-600 rounded"
-                      />
-                      <div>
-                        <h3 className="font-bold text-slate-900">
-                          {module.displayName}
-                        </h3>
-                        <p className="text-sm text-slate-500">
-                          {module.description}
-                        </p>
-                      </div>
-                    </label>
-                    {isModuleSelected && (
-                      <button
-                        type="button"
-                        onClick={(e) =>
-                          selectAllBasicActions(module.moduleName, e)
-                        }
-                        className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
-                      >
-                        Select All Basic
-                      </button>
-                    )}
+                    <div>
+                      <h3 className="font-bold text-slate-900">
+                        {module.displayName}
+                      </h3>
+                      <p className="text-sm text-slate-500">
+                        {module.description}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => toggleAllPermissions(module.moduleName, e)}
+                      className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+                    >
+                      {isModuleFullySelected ? "Deselect All" : "Select All"}
+                    </button>
                   </div>
 
-                  {/* Basic Actions */}
-                  {isModuleSelected && (
-                    <div className="mb-6">
-                      <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                        Basic Actions ({module.basicActions.length})
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {module.basicActions.map((action) => (
-                          <label
-                            key={action}
-                            className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                              moduleFormData.actions.includes(action)
-                                ? "border-indigo-300 bg-indigo-50"
-                                : "border-slate-200 hover:border-slate-300"
-                            }`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={moduleFormData.actions.includes(action)}
-                              onChange={(e) =>
-                                toggleAction(module.moduleName, action, e)
-                              }
-                              className="w-4 h-4 text-indigo-600 rounded"
-                            />
-                            <span className="text-sm font-medium text-slate-700 capitalize">
-                              {action}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
+                  {/* Module Permissions */}
+                  <div className="space-y-3">
+                    {module.entries.map((entry) => (
+                      <label
+                        key={entry._id}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                          isPermissionSelected(entry._id)
+                            ? "border-indigo-300 bg-indigo-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isPermissionSelected(entry._id)}
+                          onChange={() => togglePermission(entry._id, entry.action)}
+                          className="w-4 h-4 text-indigo-600 rounded"
+                        />
+                        <div>
+                          <span className="text-sm font-medium text-slate-700 capitalize">
+                            {entry.action}
+                          </span>
+                          <span className="text-xs text-slate-500 ml-2">
+                            ({module.moduleName})
+                          </span>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               );
             })}
@@ -434,29 +412,31 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
               Permission Summary
             </h3>
             <div className="space-y-4">
-              {formData.permissions
-                .filter(
-                  (p) => p.actions.length > 0,
-                )
-                .map((perm) => {
-                  const module = availableModules.find(
-                    (m) => m.moduleName === perm.moduleName,
+              {availableModules
+                .filter(module => isAnyPermissionSelected(module.moduleName))
+                .map((module) => {
+                  const selectedEntries = module.entries.filter(
+                    entry => formData.permissions.includes(entry._id)
                   );
+                  
                   return (
                     <div
-                      key={perm.moduleName}
+                      key={module.moduleName}
                       className="border-b border-slate-200 pb-4 last:border-0"
                     >
                       <div className="font-medium text-slate-900 mb-2">
-                        {module?.displayName || perm.moduleName}
+                        {module.displayName}
+                        <span className="text-sm text-slate-500 ml-2">
+                          ({selectedEntries.length} of {module.entries.length} actions)
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        {perm.actions.map((action) => (
+                        {selectedEntries.map((entry) => (
                           <span
-                            key={action}
+                            key={entry._id}
                             className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-medium capitalize"
                           >
-                            {action}
+                            {entry.action}
                           </span>
                         ))}
                       </div>

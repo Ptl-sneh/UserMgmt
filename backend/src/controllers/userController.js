@@ -2,18 +2,19 @@ const User = require("../models/User");
 const Role = require("../models/Role");
 const bcrypt = require("bcryptjs");
 const { Parser } = require("json2csv");
+const mongoose = require("mongoose");
 
 // Validation helper function
 const validateUserData = (data, isUpdate = false) => {
   const errors = {};
 
   /* NAME VALIDATION */
-  if (!data.userName || data.userName.trim().length === 0) {
-    errors.userName = "Username is required";
-  } else if (data.userName.trim().length < 2) {
-    errors.userName = "Username must be at least 2 characters long";
-  } else if (data.userName.trim().length > 50) {
-    errors.userName = "Username must not exceed 50 characters";
+  if (!data.name || data.name.trim().length === 0) {
+    errors.name = "Username is required";
+  } else if (data.name.trim().length < 2) {
+    errors.name = "Username must be at least 2 characters long";
+  } else if (data.name.trim().length > 50) {
+    errors.name = "Username must not exceed 50 characters";
   }
 
   /* EMAIL VALIDATION */
@@ -39,16 +40,39 @@ const validateUserData = (data, isUpdate = false) => {
     }
   }
 
-  /* ROLE VALIDATION */
-  if (data.roleId !== undefined) {
-    if (typeof data.roleId !== "string" || data.roleId.trim().length === 0) {
-      errors.roleId = "Valid role ID is required";
+  /* ROLES VALIDATION */
+  if (data.roles !== undefined) {
+    if (!Array.isArray(data.roles)) {
+      errors.roles = "Roles must be an array";
+    } else {
+      // Validate each role ID
+      const invalidRoleIds = data.roles.filter(
+        id => !mongoose.Types.ObjectId.isValid(id)
+      );
+      if (invalidRoleIds.length > 0) {
+        errors.roles = "Invalid role ID(s) provided";
+      }
+    }
+  }
+
+  /* HOBBIES VALIDATION */
+  if (data.hobbies !== undefined) {
+    if (!Array.isArray(data.hobbies)) {
+      errors.hobbies = "Hobbies must be an array";
+    } else {
+      // Validate each hobby is a string
+      const invalidHobbies = data.hobbies.filter(
+        hobby => typeof hobby !== 'string' || hobby.trim().length === 0
+      );
+      if (invalidHobbies.length > 0) {
+        errors.hobbies = "All hobbies must be non-empty strings";
+      }
     }
   }
 
   /* STATUS VALIDATION */
-  if (data.status && !["active", "inactive"].includes(data.status.toLowerCase())) {
-    errors.status = "Status must be either active or inactive";
+  if (data.status && !["Active", "Inactive"].includes(data.status)) {
+    errors.status = "Status must be either Active or Inactive";
   }
 
   return errors;
@@ -57,7 +81,7 @@ const validateUserData = (data, isUpdate = false) => {
 // CREATE USER (Admin)
 const createUser = async (req, res) => {
   try {
-    const { userName, email, password, roleId, status } = req.body;
+    const { name, email, password, roles = [], hobbies = [], status } = req.body;
 
     // Validate input
     const validationErrors = validateUserData(req.body, false);
@@ -82,17 +106,18 @@ const createUser = async (req, res) => {
       });
     }
 
-    // Validate role if provided
-    if (roleId) {
-      const validRole = await Role.findOne({
-        _id: roleId,
+    // Validate roles if provided
+    if (roles.length > 0) {
+      // Check if all role IDs exist and are active
+      const validRoles = await Role.find({
+        _id: { $in: roles },
         isDeleted: false,
       });
 
-      if (!validRole) {
+      if (validRoles.length !== roles.length) {
         return res.status(400).json({
           message: "Validation failed",
-          errors: { roleId: "Role is invalid" },
+          errors: { roles: "One or more roles are invalid or deleted" },
         });
       }
     }
@@ -100,17 +125,28 @@ const createUser = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      userName: userName.trim(),
+      name: name.trim(),
       email: email.toLowerCase().trim(),
       password: hashedPassword,
-      roleId: roleId || null,
-      status: (status || "active").toLowerCase(),
+      roles: roles, // Array of role IDs
+      hobbies: hobbies.map(hobby => hobby.trim()), // Array of hobbies
+      status: status || "Active",
     });
 
-    res.status(201).json(user);
+    // Populate roles before returning
+    const populatedUser = await User.findById(user._id)
+      .populate({
+        path: 'roles',
+        select: 'name status'
+      });
+
+    res.status(201).json(populatedUser);
   } catch (error) {
     console.error("Create user error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ 
+      message: "Server error",
+      error: error.message 
+    });
   }
 };
 
@@ -134,14 +170,14 @@ const getUsers = async (req, res) => {
     // Add search condition
     if (search) {
       matchConditions.$or = [
-        { userName: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
     }
 
     // Add status filter if provided
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      matchConditions.status = statusFilter.toLowerCase();
+      matchConditions.status = statusFilter;
     }
 
     // Aggregation pipeline
@@ -150,32 +186,36 @@ const getUsers = async (req, res) => {
       {
         $match: matchConditions,
       },
-      // Stage 2: Lookup role from roles collection
+      // Stage 2: Lookup roles from roles collection
       {
         $lookup: {
           from: "roles",
-          localField: "roleId",
+          localField: "roles",
           foreignField: "_id",
-          as: "role",
+          as: "roleDetails",
         },
       },
-      // Stage 3: Unwind role array
-      {
-        $unwind: {
-          path: "$role",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      // Stage 4: Sort documents
+      // Stage 3: Sort documents
       {
         $sort: { [sortBy]: order },
       },
-      // Stage 5: Use facet to get both paginated results and total count
+      // Stage 4: Use facet to get both paginated results and total count
       {
         $facet: {
           paginatedResults: [
             { $skip: skip },
             { $limit: limit },
+            // Add fields for easier frontend consumption
+            {
+              $addFields: {
+                roles: "$roleDetails"
+              }
+            },
+            {
+              $project: {
+                roleDetails: 0
+              }
+            }
           ],
           totalCount: [
             {
@@ -184,7 +224,7 @@ const getUsers = async (req, res) => {
           ],
         },
       },
-      // Stage 6: Reshape the output
+      // Stage 5: Reshape the output
       {
         $project: {
           users: "$paginatedResults",
@@ -210,7 +250,10 @@ const getUsers = async (req, res) => {
     });
   } catch (error) {
     console.error("Get users error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ 
+      message: "Server error",
+      error: error.message 
+    });
   }
 };
 
@@ -220,7 +263,10 @@ const getUserById = async (req, res) => {
     const user = await User.findOne({
       _id: req.params.id,
       isDeleted: false,
-    }).populate("roleId");
+    }).populate({
+      path: 'roles',
+      select: 'name status permissions'
+    });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -236,7 +282,7 @@ const getUserById = async (req, res) => {
 // UPDATE USER
 const updateUser = async (req, res) => {
   try {
-    const { userName, roleId, status } = req.body;
+    const { name, roles, hobbies, status } = req.body;
 
     // Validate input
     const validationErrors = validateUserData(req.body, true);
@@ -254,30 +300,46 @@ const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Validate role if provided
-    if (roleId) {
-      const validRole = await Role.findOne({
-        _id: roleId,
-        isDeleted: false,
-      });
-
-      if (!validRole) {
-        return res.status(400).json({
-          message: "Validation failed",
-          errors: { roleId: "Role is invalid" },
+    // Validate roles if provided
+    if (roles !== undefined) {
+      if (roles.length > 0) {
+        // Check if all role IDs exist and are active
+        const validRoles = await Role.find({
+          _id: { $in: roles },
+          isDeleted: false,
         });
+
+        if (validRoles.length !== roles.length) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: { roles: "One or more roles are invalid or deleted" },
+          });
+        }
       }
+      user.roles = roles;
     }
 
-    user.userName = userName ? userName.trim() : user.userName;
-    user.roleId = roleId !== undefined ? roleId : user.roleId;
-    user.status = status ? status.toLowerCase() : user.status;
+    // Update other fields if provided
+    if (name) user.name = name.trim();
+    if (hobbies !== undefined) user.hobbies = hobbies.map(hobby => hobby.trim());
+    if (status) user.status = status;
 
     await user.save();
-    res.json(user);
+
+    // Populate roles before returning
+    const populatedUser = await User.findById(user._id)
+      .populate({
+        path: 'roles',
+        select: 'name status'
+      });
+
+    res.json(populatedUser);
   } catch (error) {
     console.error("Update user error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ 
+      message: "Server error",
+      error: error.message 
+    });
   }
 };
 
@@ -292,7 +354,7 @@ const deleteUser = async (req, res) => {
 
     user.isDeleted = true;
     user.deletedAt = new Date();
-    user.status = "inactive";
+    user.status = "Inactive";
     await user.save();
 
     res.json({ message: "User deleted successfully" });
@@ -317,14 +379,14 @@ const exportUsers = async (req, res) => {
     // Add search condition
     if (search) {
       matchConditions.$or = [
-        { userName: { $regex: search, $options: "i" } },
+        { name: { $regex: search, $options: "i" } },
         { email: { $regex: search, $options: "i" } },
       ];
     }
 
     // Add status filter
     if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      matchConditions.status = statusFilter.toLowerCase();
+      matchConditions.status = statusFilter;
     }
 
     // Aggregation pipeline
@@ -333,30 +395,31 @@ const exportUsers = async (req, res) => {
       {
         $match: matchConditions,
       },
-      // Stage 2: Lookup role from roles collection
+      // Stage 2: Lookup roles from roles collection
       {
         $lookup: {
           from: "roles",
-          localField: "roleId",
+          localField: "roles",
           foreignField: "_id",
-          as: "role",
+          as: "roleDetails",
         },
       },
-      // Stage 3: Unwind role array
+      // Stage 3: Unwind to get first role (for CSV, we might want just one role shown)
       {
         $unwind: {
-          path: "$role",
+          path: "$roleDetails",
           preserveNullAndEmptyArrays: true,
         },
       },
       // Stage 4: Project and transform data for CSV
       {
         $project: {
-          userName: 1,
+          name: 1,
           email: 1,
           status: 1,
           createdAt: 1,
-          roleName: "$role.roleName",
+          hobbies: { $toString: "$hobbies" }, // Convert array to string
+          roleName: "$roleDetails.name",
         },
       },
       // Stage 5: Add formatted fields for CSV
@@ -373,9 +436,10 @@ const exportUsers = async (req, res) => {
       // Stage 6: Final projection for CSV format
       {
         $project: {
-          userName: 1,
+          name: 1,
           email: 1,
           status: 1,
+          hobbies: 1,
           role: "$roleName",
           createdAt: "$createdAtFormatted",
         },
@@ -387,7 +451,7 @@ const exportUsers = async (req, res) => {
 
     // Generate CSV
     const parser = new Parser({
-      fields: ["userName", "email", "status", "role", "createdAt"],
+      fields: ["name", "email", "status", "hobbies", "role", "createdAt"],
     });
     const csv = parser.parse(users);
 

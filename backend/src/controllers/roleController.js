@@ -6,9 +6,9 @@ const Module = require("../models/Modules");
 
 const createRole = async (req, res) => {
   try {
-    const { roleName, permissions = [], status = "active" } = req.body;
+    const { name, permissions = [], status = "Active" } = req.body;
 
-    if (!roleName) {
+    if (!name) {
       return res.status(400).json({ message: "Role name is required" });
     }
 
@@ -37,16 +37,16 @@ const createRole = async (req, res) => {
     }
 
     // Check if role already exists
-    const existingRole = await Role.findOne({ roleName, isDeleted: false });
+    const existingRole = await Role.findOne({ name, isDeleted: false });
     if (existingRole) {
       return res.status(400).json({ message: "Role already exists" });
     }
 
     // Create role with Module ObjectId references
     const role = await Role.create({
-      roleName,
+      name,
       permissions, // Array of Module ObjectIds
-      status: status.toLowerCase(),
+      status: status,
     });
 
     // Populate and return
@@ -74,7 +74,7 @@ const getRoles = async (req, res) => {
 
     const query = {
       isDeleted: false,
-      roleName: { $regex: search, $options: "i" },
+      name: { $regex: search, $options: "i" },
     };
 
     // Get roles and populate Module references
@@ -128,7 +128,7 @@ const getRoleById = async (req, res) => {
 
 const updateRole = async (req, res) => {
   try {
-    const { roleName, permissions, status } = req.body;
+    const { name, permissions, status } = req.body;
 
     const role = await Role.findOne({
       _id: req.params.id,
@@ -168,8 +168,8 @@ const updateRole = async (req, res) => {
       role.permissions = permissions;
     }
 
-    if (roleName) role.roleName = roleName;
-    if (status) role.status = status.toLowerCase();
+    if (name) role.name = name;
+    if (status) role.status = status;
 
     await role.save();
 
@@ -196,7 +196,7 @@ const deleteRole = async (req, res) => {
 
     role.isDeleted = true;
     role.deletedAt = new Date();
-    role.status = "inactive";
+    role.status = "Inactive";
 
     await role.save();
     return res.json({ message: "Role deleted successfully" });

@@ -1,49 +1,24 @@
-// services/ModuleService.jsx
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/modules";
 
-const getAuthHeader = () => ({
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem("token")}`,
-  },
-});
-
-export const fetchModules = async () => {
+export const fetchModules = async (grouped = false) => {
   try {
     const token = localStorage.getItem("token");
-    if (!token) {
-      throw new Error("No authentication token found");
-    }
-
-    const response = await axios.get(`${API_URL}/grouped`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const url = grouped 
+      ? `${API_URL}?grouped=true`
+      : API_URL;
+    
+    const response = await axios.get(url, {
+      headers: { Authorization: `Bearer ${token}` },
     });
-
-    console.log("Modules API Response:", response.data); // Debug log
-    return response.data.data;
+    
+    // If grouped=true, response.data has {success: true, data: [...]}
+    // If grouped=false, response.data is array directly
+    return grouped ? response.data.data : response.data;
+    
   } catch (error) {
-    console.error(
-      "Error fetching modules:",
-      error.response?.data || error.message,
-    );
+    console.error("Error fetching modules:", error);
     throw error;
   }
-};
-
-export const fetchModulesUnique = async () => {
-  try {
-    const response = await axios.get(`${API_URL}/grouped-unique`, getAuthHeader());
-    return response.data.data;
-  } catch (error) {
-    console.error("Error fetching unique modules:", error);
-    throw error;
-  }
-};
-
-export default {
-  fetchModules,
-  fetchModulesUnique,
 };

@@ -5,13 +5,13 @@ const mongoose = require("mongoose");
 // Get all modules with their permissions
 const getPermissionSummary = async (req, res) => {
   try {
-    // Get all unique modules and count roles
+    // Get all modules and count roles
     const permissionSummary = await Role.aggregate([
       // Step 1: Only get active, non-deleted roles
       {
         $match: {
           isDeleted: false,
-          status: "active"
+          status: "Active"
         }
       },
       // Step 2: Lookup to populate permissions
@@ -157,7 +157,7 @@ const getUsersWithPermission = async (req, res) => {
     // 2. Find roles that have these modules
     const rolesWithPermission = await Role.find({
       isDeleted: false,
-      status: "active",
+      status: "Active",
       permissions: { $in: moduleIds }
     }).select("_id roleName");
     
@@ -167,7 +167,7 @@ const getUsersWithPermission = async (req, res) => {
     const User = require("../models/User");
     const users = await User.find({
       isDeleted: false,
-      status: "active",
+      status: "Active",
       roleId: { $in: roleIds }
     }).select("userName email status");
     

@@ -137,34 +137,51 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     if (errors.roles) setErrors({ ...errors, roles: "" });
   };
 
-  /* ================= SUBMIT ================= */
-  const submitForm = async () => {
-    setIsSubmitting(true);
-    setErrors({});
+  // In UserForm.jsx, update the handleSubmit function:
+const submitForm = async () => {
+  setIsSubmitting(true);
+  setErrors({});
 
-    // FRONTEND VALIDATION
-    const validationErrors = validateForm(formData, !!initialData);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      setIsSubmitting(false);
-      return;
+  // FRONTEND VALIDATION
+  const validationErrors = validateForm(formData, !!initialData);
+  if (Object.keys(validationErrors).length > 0) {
+    setErrors(validationErrors);
+    setIsSubmitting(false);
+    return;
+  }
+
+  try {
+    // Prepare data for backend - roles should be an array of role IDs
+    const userData = {
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      roles: formData.roles, // Already an array of role IDs
+      hobbies: formData.hobbies,
+      status: formData.status
+    };
+
+    // Remove password if empty (for updates)
+    if (initialData && !formData.password) {
+      delete userData.password;
     }
 
-    try {
-      await onSubmit(formData);
-    } catch (error) {
-      // BACKEND VALIDATION ERRORS
-      if (error.response?.data?.errors) {
-        setErrors(error.response.data.errors);
-      } else if (error.response?.data?.message) {
-        console.error("Error:", error.response.data.message);
-      }
-    } finally {
-      setIsSubmitting(false);
+    console.log("Submitting user data:", userData);
+    await onSubmit(userData);
+  } catch (error) {
+    // BACKEND VALIDATION ERRORS
+    if (error.response?.data?.errors) {
+      setErrors(error.response.data.errors);
+    } else if (error.response?.data?.message) {
+      console.error("Error:", error.response.data.message);
+      setErrors({ submit: error.response.data.message });
     }
-  };
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
-  /* ================= JSX ================= */
+  /* JSX */
   return (
     <div className="max-w-3xl mx-auto bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
       {/* Header */}

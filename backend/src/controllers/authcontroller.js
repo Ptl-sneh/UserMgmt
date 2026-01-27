@@ -1,8 +1,6 @@
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const Role = require("../models/Role");
-const Module = require("../models/Modules");
 
 const login = async (req, res) => {
   try {
@@ -15,8 +13,11 @@ const login = async (req, res) => {
         .json({ message: "Email and password are required" });
     }
 
-    // 2. Check user
-    const user = await User.findOne({ email });
+    // 2. Check user exists and is not deleted
+    const user = await User.findOne({ 
+      email: email.toLowerCase().trim(),
+      isDeleted: false 
+    });
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -33,84 +34,149 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 5. Use aggregation to get user roles and aggregated permissions
-    const userWithPermissions = await User.aggregate([
-      // Match the user
+    // 5. SIMPLIFIED AGGREGATION PIPELINE - FIXED
+    const userPermissions = await User.aggregate([
+      // Stage 1: Match the user
       { $match: { _id: user._id } },
       
-      // Lookup roles
+      // Stage 2: Unwind roles array (if user has multiple roles)
+      { $unwind: { path: "$roles", preserveNullAndEmptyArrays: true } },
+      
+      // Stage 3: Lookup roles
       {
         $lookup: {
           from: "roles",
           localField: "roles",
           foreignField: "_id",
-          as: "userRoles"
+          as: "roleDetails"
         }
       },
       
-      // Filter active roles
-      {
-        $unwind: {
-          path: "$userRoles",
-          preserveNullAndEmptyArrays: true
-        }
-      },
+      // Stage 4: Unwind roleDetails
+      { $unwind: { path: "$roleDetails", preserveNullAndEmptyArrays: true } },
+      
+      // Stage 5: Filter active, non-deleted roles
       {
         $match: {
-          "userRoles.status": "Active",
-          "userRoles.isDeleted": false
+          "roleDetails.status": "Active",
+          "roleDetails.isDeleted": false
         }
       },
       
-      // Lookup permissions (modules) for each role
+      // Stage 6: Unwind permissions array
+      { $unwind: { path: "$roleDetails.permissions", preserveNullAndEmptyArrays: true } },
+      
+      // Stage 7: Lookup module details for each permission
       {
         $lookup: {
           from: "modules",
-          localField: "userRoles.permissions",
+          localField: "roleDetails.permissions",
           foreignField: "_id",
-          as: "rolePermissions"
+          as: "moduleDetails"
         }
       },
       
-      // Unwind permissions to process each one
-      { $unwind: "$rolePermissions" },
+      // Stage 8: Unwind moduleDetails
+      { $unwind: { path: "$moduleDetails", preserveNullAndEmptyArrays: true } },
       
-      // Group by moduleName and collect unique actions
+      // Stage 9: Filter active modules
+      { $match: { "moduleDetails.isActive": true } },
+      
+      // Stage 10: Group by user and moduleName to collect actions
       {
         $group: {
-          _id: "$rolePermissions.moduleName",
-          actions: { $addToSet: "$rolePermissions.actions" },
-          roleNames: { $addToSet: "$userRoles.name" }
+          _id: {
+            userId: "$_id",
+            moduleName: "$moduleDetails.moduleName"
+          },
+          actions: { $addToSet: "$moduleDetails.actions" },
+          roleNames: { $addToSet: "$roleDetails.name" },
+          userName: { $first: "$name" },
+          userEmail: { $first: "$email" }
         }
       },
       
-      // Project to final format
+      // Stage 11: Group by user to collect all modules
       {
-        $project: {
-          _id: 0,
-          moduleName: "$_id",
-          actions: 1,
-          roleNames: 1
+        $group: {
+          _id: "$_id.userId",
+          modules: {
+            $push: {
+              moduleName: "$_id.moduleName",
+              actions: "$actions"
+            }
+          },
+          roleNames: { $first: "$roleNames" },
+          name: { $first: "$userName" },
+          email: { $first: "$userEmail" }
         }
-      },
-      
-      // Sort by moduleName
-      { $sort: { moduleName: 1 } }
+      }
     ]);
 
-    if (userWithPermissions.length === 0) {
-      return res.status(403).json({ message: "No active roles found for user" });
+    // 6. Check if we got any permissions
+    let aggregatedPermissions = [];
+    let roleNames = [];
+    
+    if (userPermissions.length > 0) {
+      const userData = userPermissions[0];
+      aggregatedPermissions = userData.modules.map(module => ({
+        moduleName: module.moduleName,
+        actions: module.actions.flat().filter(action => action) // Flatten and filter nulls
+      }));
+      roleNames = userData.roleNames.filter(role => role); // Filter null roles
+    } else {
+      // If no permissions from aggregation, try a simpler approach
+      // Get user's roles directly
+      const populatedUser = await User.findById(user._id)
+        .populate({
+          path: 'roles',
+          match: { 
+            status: 'Active',
+            isDeleted: false 
+          },
+          populate: {
+            path: 'permissions',
+            model: 'Module',
+            match: { isActive: true },
+            select: 'moduleName actions'
+          }
+        })
+        .select('name email roles');
+      
+      if (populatedUser.roles && populatedUser.roles.length > 0) {
+        roleNames = populatedUser.roles.map(role => role.name);
+        
+        // Collect all unique module permissions
+        const moduleMap = new Map();
+        
+        populatedUser.roles.forEach(role => {
+          if (role.permissions && role.permissions.length > 0) {
+            role.permissions.forEach(permission => {
+              const moduleName = permission.moduleName;
+              const action = permission.actions;
+              
+              if (!moduleMap.has(moduleName)) {
+                moduleMap.set(moduleName, new Set());
+              }
+              moduleMap.get(moduleName).add(action);
+            });
+          }
+        });
+        
+        // Convert map to array format
+        aggregatedPermissions = Array.from(moduleMap.entries()).map(([moduleName, actionsSet]) => ({
+          moduleName,
+          actions: Array.from(actionsSet)
+        }));
+      }
     }
 
-    // Extract aggregated permissions and role names
-    const aggregatedPermissions = userWithPermissions.map(item => ({
-      moduleName: item.moduleName,
-      actions: item.actions
-    }));
-
-    // Get unique role names from all groups
-    const roleNames = [...new Set(userWithPermissions.flatMap(item => item.roleNames))];
-    const roleNamesString = roleNames.join(", ");
+    // If still no roles, return error
+    if (roleNames.length === 0) {
+      return res.status(403).json({ 
+        message: "User has no active roles. Contact administrator." 
+      });
+    }
 
     // 7. Generate token
     const token = jwt.sign(
@@ -118,7 +184,7 @@ const login = async (req, res) => {
         userId: user._id,
         name: user.name,
         email: user.email,
-        role: roleNamesString,
+        role: roleNames.join(", "),
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
@@ -137,8 +203,11 @@ const login = async (req, res) => {
     });
     
   } catch (error) {
-    console.error("Login error:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Login error details:", error);
+    res.status(500).json({ 
+      message: "Server error during login",
+      error: error.message 
+    });
   }
 };
 
