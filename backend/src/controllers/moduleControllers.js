@@ -1,6 +1,5 @@
 const Permission = require('../models/Modules'); 
 
-// Only keep this one function
 exports.getModules = async (req, res) => {
   try {
     // Check if we want grouped format (for UI) or all modules (for RoleForm)

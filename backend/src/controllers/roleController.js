@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 const Role = require("../models/Role");
 const Module = require("../models/Modules");
 
-/* ---------------- CREATE ROLE ---------------- */
+/* CREATE ROLE */
 
 const createRole = async (req, res) => {
   try {
@@ -60,7 +60,7 @@ const createRole = async (req, res) => {
   }
 };
 
-/* ---------------- GET ROLES ---------------- */
+/* GET ROLES  */
 
 const getRoles = async (req, res) => {
   try {
@@ -101,7 +101,7 @@ const getRoles = async (req, res) => {
   }
 };
 
-/* ---------------- GET ROLE BY ID ---------------- */
+/* GET ROLE BY ID  */
 
 const getRoleById = async (req, res) => {
   try {
