@@ -247,7 +247,7 @@ const Permissions = () => {
                             <div className="flex items-center justify-between mb-4">
                               <h3 className="text-lg font-bold text-slate-900">{role.roleName}</h3>
                               <div className="text-sm text-slate-500">
-                                {role.actions.length} actions, {role.nestedPermissions.length} nested
+                                {role.actions.length} actions
                               </div>
                             </div>
 
@@ -275,31 +275,7 @@ const Permissions = () => {
                               </div>
                             )}
 
-                            {/* Nested Permissions */}
-                            {role.nestedPermissions.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-slate-700 mb-2">Nested Permissions:</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {role.nestedPermissions.map((nested, i) => (
-                                    <span
-                                      key={i}
-                                      className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium"
-                                    >
-                                      {nested.replace(/_/g, ' ')}
-                                      <button
-                                        onClick={() => fetchUsersWithPermission(moduleDetails.moduleName, nested)}
-                                        className="ml-2 text-purple-500 hover:text-purple-700"
-                                        title="View users with this permission"
-                                      >
-                                        👁
-                                      </button>
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {role.actions.length === 0 && role.nestedPermissions.length === 0 && (
+                            {role.actions.length === 0 && (
                               <p className="text-slate-500 text-sm">No permissions assigned for this role</p>
                             )}
                           </div>

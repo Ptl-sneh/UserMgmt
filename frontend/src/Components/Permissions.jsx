@@ -7,9 +7,8 @@
 //   return user.permissions.includes(permission);
 // };
 
-export const hasModulePermission = (moduleName, action, isNested = false) => {
+export const hasModulePermission = (moduleName, action) => {
   const user = JSON.parse(localStorage.getItem("user"));
-  console.log("User permissions from localStorage:", user?.permissions);
 
   if (!user || !Array.isArray(user.permissions)) return false;
 
@@ -19,11 +18,7 @@ export const hasModulePermission = (moduleName, action, isNested = false) => {
 
   if (!modulePermission) return false;
 
-  if (isNested) {
-    return Array.isArray(modulePermission.nestedPermissions) && 
-           modulePermission.nestedPermissions.includes(action);
-  }
-
+  // Check if actions array exists and includes the action
   return Array.isArray(modulePermission.actions) && 
          modulePermission.actions.includes(action);
 };
@@ -38,7 +33,7 @@ export const hasPermission = (permission) => {
     "USER_CREATE": { module: "UserManagement", action: "create" },
     "USER_EDIT": { module: "UserManagement", action: "update" },
     "USER_DELETE": { module: "UserManagement", action: "delete" },
-    "USER_EXPORT": { module: "UserManagement", action: "export", isNested: true },
+    "USER_EXPORT": { module: "UserManagement", action: "Export CSV" },
     
     "ROLE_VIEW": { module: "RoleManagement", action: "read" },
     "ROLE_CREATE": { module: "RoleManagement", action: "create" },
@@ -47,13 +42,14 @@ export const hasPermission = (permission) => {
     
     "PERMISSION_VIEW": { module: "PermissionManagement", action: "read" },
     
-    "DASHBOARD_VIEW": { module: "Dashboard", action: "view" }
+    "DASHBOARD_VIEW": { module: "Dashboard", action: "view" },
+    "DASHBOARD_REFRESH": { module: "Dashboard", action: "refresh status" }
   };
 
   // If it's a mapped permission, use new system
   if (permissionMap[permission]) {
-    const { module, action, isNested } = permissionMap[permission];
-    return hasModulePermission(module, action, isNested);
+    const { module, action } = permissionMap[permission];
+    return hasModulePermission(module, action);
   }
 
   // Fallback to old flat permission check (temporary)

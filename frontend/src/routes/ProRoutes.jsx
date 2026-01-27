@@ -26,19 +26,20 @@ const ProRoute = ({ children, allowedRoles, requiredPermission }) => {
       "USER_CREATE": { module: "UserManagement", action: "create" },
       "USER_EDIT": { module: "UserManagement", action: "update" },
       "USER_DELETE": { module: "UserManagement", action: "delete" },
-      "USER_EXPORT": { module: "UserManagement", action: "export", isNested: true },
+      "USER_EXPORT": { module: "UserManagement", action: "Export CSV" }, // In new schema, "Export CSV" is in actions array
       "ROLE_VIEW": { module: "RoleManagement", action: "read" },
       "ROLE_CREATE": { module: "RoleManagement", action: "create" },
       "ROLE_EDIT": { module: "RoleManagement", action: "update" },
       "ROLE_DELETE": { module: "RoleManagement", action: "delete" },
       "PERMISSION_VIEW": { module: "PermissionManagement", action: "read" },
-      "DASHBOARD_VIEW": { module: "Dashboard", action: "view" }
+      "DASHBOARD_VIEW": { module: "Dashboard", action: "view" },
+      "DASHBOARD_REFRESH": { module: "Dashboard", action: "refresh status" }
     };
 
     let hasNewPermission = false;
     if (permissionMap[requiredPermission]) {
-      const { module, action, isNested } = permissionMap[requiredPermission];
-      hasNewPermission = hasModulePermission(module, action, isNested);
+      const { module, action } = permissionMap[requiredPermission];
+      hasNewPermission = hasModulePermission(module, action);
     }
 
     // If user doesn't have permission in either system

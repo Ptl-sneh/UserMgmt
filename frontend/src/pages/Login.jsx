@@ -16,15 +16,23 @@ const Login = () => {
     try {
       const data = await loginUser({ email, password });
 
+      if (!data || !data.token || !data.user) {
+        setError("Invalid response from server");
+        return;
+      }
+
       localStorage.setItem("token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
 
-      if (data.user.roles.includes("Admin")) {
+      // Check if user has Admin role (roles is now an array)
+      const userRoles = data.user.roles || [];
+      if (userRoles.includes("Admin") || userRoles.some(role => role.toLowerCase() === "admin")) {
         navigate("/dashboard");
       } else {
         navigate("/home");
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError(err.response?.data?.message || "Login failed");
     }
   };

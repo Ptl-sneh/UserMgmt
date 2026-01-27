@@ -27,7 +27,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           basicActions: module.actions.map((action) =>
             typeof action === "object" ? action.name : action,
           ),
-          nestedPermissions: getDefaultNestedPermissions(module.moduleName),
         }));
 
         setAvailableModules(transformedModules);
@@ -60,21 +59,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
     return descriptions[moduleName] || `Manage ${formatModuleName(moduleName)}`;
   };
 
-  // Helper function to get default nested permissions for each module
-  const getDefaultNestedPermissions = (moduleName) => {
-    const nestedPermissions = {
-      UserManagement: [
-        "export",
-        "import",
-        "bulk_delete",
-        "view_sensitive_data",
-      ],
-      RoleManagement: ["export", "clone", "assign_permissions"],
-      PermissionManagement: ["export_report", "audit_logs", "generate_stats"],
-      Dashboard: ["refresh_status", "customize", "notifications"],
-    };
-    return nestedPermissions[moduleName] || [];
-  };
 
   // Initialize form with initialData
   useEffect(() => {
@@ -117,7 +101,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           {
             moduleName,
             actions: [],
-            nestedPermissions: [],
           },
         ],
       }));
@@ -177,7 +160,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
         newPermissions.push({
           moduleName,
           actions: [...module.basicActions],
-          nestedPermissions: [],
         });
       } else {
         // Replace all basic actions
@@ -215,7 +197,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
 
     // Filter out modules with no permissions selected
     const filteredPermissions = formData.permissions.filter(
-      (perm) => perm.actions.length > 0 || perm.nestedPermissions.length > 0,
+      (perm) => perm.actions.length > 0,
     );
 
     onSubmit({
@@ -412,55 +394,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                     </div>
                   )}
 
-                  {/* Nested Permissions */}
-                  {isModuleSelected && module.nestedPermissions.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-slate-700 mb-3">
-                        Nested Permissions (Extra Access)
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                        {module.nestedPermissions.map((nestedPerm) => {
-                          const displayName = nestedPerm
-                            .split("_")
-                            .map(
-                              (word) =>
-                                word.charAt(0).toUpperCase() + word.slice(1),
-                            )
-                            .join(" ");
-
-                          return (
-                            <label
-                              key={nestedPerm}
-                              className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
-                                moduleFormData.nestedPermissions.includes(
-                                  nestedPerm,
-                                )
-                                  ? "border-purple-300 bg-purple-50"
-                                  : "border-slate-200 hover:border-slate-300"
-                              }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={moduleFormData.nestedPermissions.includes(
-                                  nestedPerm,
-                                )}
-                                onChange={() =>
-                                  toggleNestedPermission(
-                                    module.moduleName,
-                                    nestedPerm,
-                                  )
-                                }
-                                className="w-4 h-4 text-purple-600 rounded"
-                              />
-                              <span className="text-sm font-medium text-slate-700">
-                                {displayName}
-                              </span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -503,7 +436,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
             <div className="space-y-4">
               {formData.permissions
                 .filter(
-                  (p) => p.actions.length > 0 || p.nestedPermissions.length > 0,
+                  (p) => p.actions.length > 0,
                 )
                 .map((perm) => {
                   const module = availableModules.find(
@@ -524,14 +457,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                             className="px-3 py-1 text-xs rounded-full bg-indigo-100 text-indigo-700 font-medium capitalize"
                           >
                             {action}
-                          </span>
-                        ))}
-                        {perm.nestedPermissions.map((nested) => (
-                          <span
-                            key={nested}
-                            className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium"
-                          >
-                            {nested.replace(/_/g, " ")}
                           </span>
                         ))}
                       </div>

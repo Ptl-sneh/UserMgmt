@@ -30,38 +30,75 @@ const checkPermission = (moduleName, action) => {
         return res.status(401).json({ message: "User not found" });
       }
 
-      // Get user's role with populated permissions
-      const role = await Role.findOne({
-        _id: user.roleId,
-        status: "active"
-      }).populate("permissions");
+      // Use aggregation to get user permissions
+      const userPermissionsResult = await User.aggregate([
+        { $match: { _id: userId } },
+        
+        // Lookup roles
+        {
+          $lookup: {
+            from: "roles",
+            localField: "roles",
+            foreignField: "_id",
+            as: "userRoles"
+          }
+        },
+        
+        // Filter active roles
+        {
+          $unwind: {
+            path: "$userRoles",
+            preserveNullAndEmptyArrays: true
+          }
+        },
+        {
+          $match: {
+            "userRoles.status": "Active",
+            "userRoles.isDeleted": false
+          }
+        },
+        
+        // Lookup permissions (modules) for each role
+        {
+          $lookup: {
+            from: "modules",
+            localField: "userRoles.permissions",
+            foreignField: "_id",
+            as: "rolePermissions"
+          }
+        },
+        
+        // Unwind permissions
+        { $unwind: "$rolePermissions" },
+        
+        // Group by moduleName and collect unique actions
+        {
+          $group: {
+            _id: "$rolePermissions.moduleName",
+            actions: { $addToSet: "$rolePermissions.actions" },
+            roleNames: { $addToSet: "$userRoles.name" }
+          }
+        },
+        
+        // Project to final format
+        {
+          $project: {
+            _id: 0,
+            moduleName: "$_id",
+            actions: 1
+          }
+        }
+      ]);
 
-      if (!role) {
-        return res.status(403).json({ message: "Role not found or inactive" });
+      if (userPermissionsResult.length === 0) {
+        return res.status(403).json({ message: "No active roles found for user" });
       }
 
-      // Aggregate permissions from role
-      const aggregatedPermissionsMap = new Map();
-
-      role.permissions.forEach((permission) => {
-        const modName = permission.moduleName;
-        const actionName = permission.action;
-        
-        if (aggregatedPermissionsMap.has(modName)) {
-          const existing = aggregatedPermissionsMap.get(modName);
-          if (!existing.actions.includes(actionName)) {
-            existing.actions.push(actionName);
-          }
-        } else {
-          aggregatedPermissionsMap.set(modName, {
-            moduleName: modName,
-            actions: [actionName],
-          });
-        }
-      });
-
-      // Convert map to array
-      const userPermissions = Array.from(aggregatedPermissionsMap.values());
+      // Convert to array format
+      const userPermissions = userPermissionsResult.map(item => ({
+        moduleName: item.moduleName,
+        actions: item.actions
+      }));
 
       // Check if user has the required permission
       if (!hasPermission(userPermissions, moduleName, action)) {
@@ -72,7 +109,6 @@ const checkPermission = (moduleName, action) => {
 
       // Attach user permissions to request for later use
       req.userPermissions = userPermissions;
-      req.userRole = role;
 
       next();
     } catch (error) {
@@ -82,13 +118,7 @@ const checkPermission = (moduleName, action) => {
   };
 };
 
-// Since you don't need nested permissions, remove checkNestedPermission or keep it simple
-const checkNestedPermission = (moduleName, nestedAction) => {
-  return checkPermission(moduleName, nestedAction); // Just reuse the same logic
-};
-
-// Export both middlewares
+// Export middleware
 module.exports = {
   checkPermission,
-  checkNestedPermission,
 };

@@ -71,24 +71,19 @@ const Roles = () => {
   // Helper to count permissions in a role
   const countPermissions = (role) => {
     if (!role.permissions || !Array.isArray(role.permissions))
-      return { modules: 0, actions: 0, nested: 0 };
+      return { modules: 0, actions: 0 };
 
     let actions = 0;
-    let nested = 0;
 
     role.permissions.forEach((module) => {
       if (module.actions && Array.isArray(module.actions)) {
         actions += module.actions.length;
-      }
-      if (module.nestedPermissions && Array.isArray(module.nestedPermissions)) {
-        nested += module.nestedPermissions.length;
       }
     });
 
     return {
       modules: role.permissions.length,
       actions: actions,
-      nested: nested,
     };
   };
 
@@ -230,14 +225,6 @@ const Roles = () => {
                                   Actions
                                 </div>
                               </div>
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-purple-600">
-                                  {permCount.nested}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  Nested
-                                </div>
-                              </div>
                             </div>
 
                             {/* Module List */}
@@ -247,7 +234,7 @@ const Roles = () => {
                                   key={i}
                                   className="px-3 py-1 text-xs rounded-full
                                   bg-slate-100 text-slate-700 font-medium"
-                                  title={`Actions: ${perm.actions?.join(", ") || "None"}\nNested: ${perm.nestedPermissions?.join(", ") || "None"}`}
+                                  title={`Actions: ${perm.actions?.join(", ") || "None"}`}
                                 >
                                   {perm.moduleName}
                                 </span>
@@ -367,9 +354,6 @@ const Roles = () => {
                     etc.)
                   </li>
                   <li>• Grant basic actions (create, read, update, delete)</li>
-                  <li>
-                    • Add nested permissions (export, import, bulk operations)
-                  </li>
                 </ul>
               </div>
               {(hasPermission("ROLE_CREATE") ||

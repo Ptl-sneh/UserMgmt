@@ -17,7 +17,6 @@ const login = async (req, res) => {
 
     // 2. Check user
     const user = await User.findOne({ email });
-    console.log(user)
 
     if (!user) {
       return res.status(401).json({ message: "Invalid credentials" });
@@ -34,50 +33,92 @@ const login = async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // 5. Get user's role and permissions
-    const role = await Role.findOne({ 
-      _id: user.roleId,
-      status: "Active"
-    }).populate("permissions");
-    console.log(user.roles[0])
-    
-    if (!role) {
-      return res.status(403).json({ message: "Role not found or inactive" });
+    // 5. Use aggregation to get user roles and aggregated permissions
+    const userWithPermissions = await User.aggregate([
+      // Match the user
+      { $match: { _id: user._id } },
+      
+      // Lookup roles
+      {
+        $lookup: {
+          from: "roles",
+          localField: "roles",
+          foreignField: "_id",
+          as: "userRoles"
+        }
+      },
+      
+      // Filter active roles
+      {
+        $unwind: {
+          path: "$userRoles",
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $match: {
+          "userRoles.status": "Active",
+          "userRoles.isDeleted": false
+        }
+      },
+      
+      // Lookup permissions (modules) for each role
+      {
+        $lookup: {
+          from: "modules",
+          localField: "userRoles.permissions",
+          foreignField: "_id",
+          as: "rolePermissions"
+        }
+      },
+      
+      // Unwind permissions to process each one
+      { $unwind: "$rolePermissions" },
+      
+      // Group by moduleName and collect unique actions
+      {
+        $group: {
+          _id: "$rolePermissions.moduleName",
+          actions: { $addToSet: "$rolePermissions.actions" },
+          roleNames: { $addToSet: "$userRoles.name" }
+        }
+      },
+      
+      // Project to final format
+      {
+        $project: {
+          _id: 0,
+          moduleName: "$_id",
+          actions: 1,
+          roleNames: 1
+        }
+      },
+      
+      // Sort by moduleName
+      { $sort: { moduleName: 1 } }
+    ]);
+
+    if (userWithPermissions.length === 0) {
+      return res.status(403).json({ message: "No active roles found for user" });
     }
 
-    // 6. Aggregate permissions
-    const aggregatedPermissionsMap = new Map();
+    // Extract aggregated permissions and role names
+    const aggregatedPermissions = userWithPermissions.map(item => ({
+      moduleName: item.moduleName,
+      actions: item.actions
+    }));
 
-    // Process each permission from role
-    role.permissions.forEach((permission) => {
-      const moduleName = permission.moduleName;
-      const action = permission.action; // Changed from "actions" to "action"
-      
-      if (aggregatedPermissionsMap.has(moduleName)) {
-        // Module already exists, add action if not already present
-        const existing = aggregatedPermissionsMap.get(moduleName);
-        if (!existing.actions.includes(action)) {
-          existing.actions.push(action);
-        }
-      } else {
-        // Add new module
-        aggregatedPermissionsMap.set(moduleName, {
-          moduleName: moduleName,
-          actions: [action], // Single action as array
-        });
-      }
-    });
-
-    // Convert map to array
-    const aggregatedPermissions = Array.from(aggregatedPermissionsMap.values());
+    // Get unique role names from all groups
+    const roleNames = [...new Set(userWithPermissions.flatMap(item => item.roleNames))];
+    const roleNamesString = roleNames.join(", ");
 
     // 7. Generate token
     const token = jwt.sign(
       {
         userId: user._id,
-        name: user.userName, // Changed from user.name to user.userName
+        name: user.name,
         email: user.email,
-        role: role.roleName, // Changed from roles array to single role
+        role: roleNamesString,
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
@@ -88,9 +129,9 @@ const login = async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.userName, // Changed from user.name to user.userName
+        name: user.name,
         email: user.email,
-        role: role.roleName, // Single role instead of array
+        roles: roleNames,
         permissions: aggregatedPermissions,
       },
     });

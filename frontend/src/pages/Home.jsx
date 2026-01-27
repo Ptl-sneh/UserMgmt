@@ -18,10 +18,6 @@ const Home = () => {
     (sum, module) => sum + module.actions.length,
     0,
   );
-  const totalNestedPermissions = userPermissions.reduce(
-    (sum, module) => sum + module.nestedPermissions.length,
-    0,
-  );
 
   useEffect(() => {
     const loadModules = async () => {
@@ -136,12 +132,6 @@ const Home = () => {
                   <h3 className="text-lg font-bold text-slate-900">
                     Extra Permissions
                   </h3>
-                  <p className="text-2xl font-extrabold text-slate-900 mt-1">
-                    {totalNestedPermissions}
-                  </p>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Special access rights
-                  </p>
                 </div>
               </div>
             </div>
@@ -199,8 +189,7 @@ const Home = () => {
                       )}
                       {hasModulePermission(
                         "UserManagement",
-                        "Export CSV",
-                        true,
+                        "Export CSV"
                       ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
                           Export
@@ -263,8 +252,7 @@ const Home = () => {
                       )}
                       {hasModulePermission(
                         "RoleManagement",
-                        "Export CSV",
-                        true,
+                        "Export CSV"
                       ) && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
                           Export

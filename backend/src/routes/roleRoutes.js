@@ -10,7 +10,7 @@ const {
 } = require("../controllers/roleController");
 
 const protect = require("../middlewares/authMiddleware");
-const { checkPermission, checkNestedPermission } = require("../middlewares/permissionMiddleware");
+const { checkPermission } = require("../middlewares/permissionMiddleware");
 
 // ROLE MANAGEMENT ROUTES
 
@@ -28,11 +28,5 @@ router.put("/:id", protect, checkPermission("RoleManagement", "update"), updateR
 
 // Delete role - requires delete permission on RoleManagement module
 router.delete("/:id", protect, checkPermission("RoleManagement", "delete"), deleteRole);
-
-// Export roles CSV - requires export nested permission on RoleManagement module
-router.get("/export/csv", protect, checkNestedPermission("RoleManagement", "export"), (req, res) => {
-  // This would be handled by a separate controller function
-  res.json({ message: "Export CSV functionality will be implemented here" });
-});
 
 module.exports = router;

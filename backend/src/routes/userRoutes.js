@@ -11,7 +11,7 @@ const {
 } = require("../controllers/userController");
 
 const protect = require("../middlewares/authMiddleware");
-const { checkPermission, checkNestedPermission } = require("../middlewares/permissionMiddleware");
+const { checkPermission } = require("../middlewares/permissionMiddleware");
 
 // Create user - requires create permission on UserManagement module
 router.post("/", protect, checkPermission("UserManagement", "create"), createUser);
@@ -19,8 +19,8 @@ router.post("/", protect, checkPermission("UserManagement", "create"), createUse
 // Get all users - requires read permission on UserManagement module
 router.get("/", protect, checkPermission("UserManagement", "read"), getUsers);
 
-// Export users CSV - requires export nested permission on UserManagement module
-router.get("/export", protect, checkNestedPermission("UserManagement", "export"), exportUsers);
+// Export users CSV - requires Export CSV action on UserManagement module
+router.get("/export", protect, checkPermission("UserManagement", "Export CSV"), exportUsers);
 
 // Get user by ID - requires read permission on UserManagement module
 router.get("/:id", protect, checkPermission("UserManagement", "read"), getUserById);
