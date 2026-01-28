@@ -1,18 +1,16 @@
 import { useState, useEffect } from "react";
-import { hasPermission, hasModulePermission } from "../Components/Permissions";
+import { hasModulePermission } from "../Components/Permissions";
 import { fetchModules } from "../services/ModuleService";
 import AdminLayout from "./Admin";
 import { Link } from "react-router-dom";
 
 const Home = () => {
-  // Get user info for display
   const user = JSON.parse(localStorage.getItem("user")) || {};
   const userName = user.name || "User";
   const userRoles = user.roles || [];
   const userPermissions = user.permissions || [];
   const [modules, setModules] = useState([]);
 
-  // Count user's permissions
   const totalModules = userPermissions.length;
   const totalActions = userPermissions.reduce(
     (sum, module) => sum + module.actions.length,
@@ -110,31 +108,6 @@ const Home = () => {
                 </div>
               </div>
             </div>
-
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-slate-900">
-                    Extra Permissions
-                  </h3>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Module Cards Section */}
@@ -144,9 +117,8 @@ const Home = () => {
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* User Management Card */}
-              {(hasPermission("USER_VIEW") ||
-                hasModulePermission("UserManagement", "read")) && (
+              {/* User Management */}
+              {hasModulePermission("UserManagement", "read") && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-xl">
@@ -187,10 +159,7 @@ const Home = () => {
                           Delete
                         </span>
                       )}
-                      {hasModulePermission(
-                        "UserManagement",
-                        "Export CSV"
-                      ) && (
+                      {hasModulePermission("UserManagement", "Export CSV") && (
                         <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
                           Export
                         </span>
@@ -207,9 +176,8 @@ const Home = () => {
                 </div>
               )}
 
-              {/* Role Management Card */}
-              {(hasPermission("ROLE_VIEW") ||
-                hasModulePermission("RoleManagement", "read")) && (
+              {/* Role Management */}
+              {hasModulePermission("RoleManagement", "read") && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-xl">
@@ -250,14 +218,6 @@ const Home = () => {
                           Delete
                         </span>
                       )}
-                      {hasModulePermission(
-                        "RoleManagement",
-                        "Export CSV"
-                      ) && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-semibold">
-                          Export
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -270,9 +230,8 @@ const Home = () => {
                 </div>
               )}
 
-              {/* Permission Management Card */}
-              {(hasPermission("PERMISSION_VIEW") ||
-                hasModulePermission("PermissionManagement", "read")) && (
+              {/* Permission Management */}
+              {hasModulePermission("PermissionManagement", "read") && (
                 <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="w-12 h-12 rounded-xl bg-cyan-100 text-cyan-600 flex items-center justify-center font-bold text-xl">
@@ -298,23 +257,6 @@ const Home = () => {
                           View
                         </span>
                       )}
-                      {hasModulePermission(
-                        "PermissionManagement",
-                        "analyze",
-                      ) && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-cyan-100 text-cyan-700 font-semibold">
-                          Analyze
-                        </span>
-                      )}
-                      {hasModulePermission(
-                        "PermissionManagement",
-                        "export_report",
-                        true,
-                      ) && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-cyan-100 text-cyan-700 font-semibold">
-                          Export Reports
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -326,68 +268,13 @@ const Home = () => {
                   </Link>
                 </div>
               )}
-
-              {/* Dashboard Card */}
-              {(hasPermission("DASHBOARD_VIEW") ||
-                hasModulePermission("Dashboard", "view")) && (
-                <div className="group bg-white rounded-2xl border border-slate-200 shadow-xl p-6 hover:shadow-2xl transition-all">
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xl">
-                      D
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900">
-                        Dashboard
-                      </h2>
-                      <p className="text-sm text-slate-500">
-                        System overview and analytics
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <h3 className="text-sm font-semibold text-slate-700 mb-2">
-                      Available Actions:
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {hasModulePermission("Dashboard", "view") && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-                          View
-                        </span>
-                      )}
-                      {hasModulePermission(
-                        "Dashboard",
-                        "refresh status",
-                        false,
-                      ) && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-                          Refresh Status
-                        </span>
-                      )}
-                      {hasModulePermission("Dashboard", "customize", true) && (
-                        <span className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-semibold">
-                          Customize
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/dashboard"
-                    className="inline-flex items-center gap-2 text-indigo-600 font-semibold hover:text-indigo-500 transition"
-                  >
-                    Go to Dashboard →
-                  </Link>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Empty State */}
-          {!hasPermission("USER_VIEW") &&
-            !hasPermission("ROLE_VIEW") &&
-            !hasModulePermission("UserManagement", "read") &&
-            !hasModulePermission("RoleManagement", "read") && (
+          {!hasModulePermission("UserManagement", "read") &&
+            !hasModulePermission("RoleManagement", "read") &&
+            !hasModulePermission("PermissionManagement", "read") && (
               <div className="mt-16 max-w-xl mx-auto bg-white rounded-2xl shadow-xl border border-slate-200 p-10 text-center">
                 <h3 className="text-2xl font-bold text-slate-900 mb-3">
                   No Access Assigned
@@ -396,12 +283,6 @@ const Home = () => {
                   You currently do not have permissions to view any modules.
                   Please contact your administrator.
                 </p>
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm text-slate-600">
-                    Your current permissions:{" "}
-                    {JSON.stringify(userPermissions, null, 2)}
-                  </p>
-                </div>
               </div>
             )}
         </div>

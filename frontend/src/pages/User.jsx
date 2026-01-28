@@ -8,7 +8,7 @@ import {
   updateUser,
 } from "../services/UserService";
 import UserForm from "../Components/UserForm";
-import { hasPermission, hasModulePermission } from "../Components/Permissions";
+import { hasModulePermission } from "../Components/Permissions";
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -84,58 +84,19 @@ const Users = () => {
   };
 
   const handleCreate = async (data) => {
-    try {
-      await createUser(data);
-      setEditingUser(null);
-      loadUsers();
-    } catch (error) {
-      throw error;
-    }
+    await createUser(data);
+    setEditingUser(null);
+    loadUsers();
   };
 
   const handleUpdate = async (data) => {
-    try {
-      await updateUser(editingUser._id, data);
-      setEditingUser(null);
-      loadUsers();
-    } catch (error) {
-      throw error;
-    }
+    await updateUser(editingUser._id, data);
+    setEditingUser(null);
+    loadUsers();
   };
-
-  // Count user's permissions
-  const countUserPermissions = (user) => {
-    if (!user.roles || !Array.isArray(user.roles))
-      return { modules: 0, actions: 0 };
-
-    let totalModules = new Set();
-    let totalActions = 0;
-
-    user.roles.forEach((role) => {
-      if (role.permissions && Array.isArray(role.permissions)) {
-        role.permissions.forEach((perm) => {
-          totalModules.add(perm.moduleName);
-          if (perm.actions && Array.isArray(perm.actions)) {
-            totalActions += perm.actions.length;
-          }
-        });
-      }
-    });
-
-    return {
-      modules: totalModules.size,
-      actions: totalActions,
-    };
-  };
-
-  // Prevent body scroll when modal is open
+  
   useEffect(() => {
-    if (editingUser) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-
+    document.body.style.overflow = editingUser ? "hidden" : "unset";
     return () => {
       document.body.style.overflow = "unset";
     };
@@ -155,8 +116,7 @@ const Users = () => {
             </div>
 
             <div className="flex gap-3">
-              {(hasPermission("USER_CREATE") ||
-                hasModulePermission("UserManagement", "create")) && (
+              {hasModulePermission("UserManagement", "create") && (
                 <button
                   onClick={() => setEditingUser("create")}
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
@@ -164,25 +124,11 @@ const Users = () => {
                   hover:bg-indigo-500 hover:scale-[1.02]
                   shadow-lg shadow-indigo-600/25 transition"
                 >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
                   Add User
                 </button>
               )}
 
-              {(hasPermission("USER_EXPORT") ||
-                hasModulePermission("UserManagement", "export", true)) && (
+              {hasModulePermission("UserManagement", "Export CSV") && (
                 <button
                   onClick={handleExport}
                   disabled={isExporting}
@@ -190,50 +136,9 @@ const Users = () => {
                   bg-emerald-500 text-white font-semibold
                   hover:bg-emerald-400 hover:scale-[1.02]
                   shadow-lg shadow-emerald-500/25 transition
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled:opacity-50"
                 >
-                  {isExporting ? (
-                    <>
-                      <svg
-                        className="animate-spin h-5 w-5 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Exporting...
-                    </>
-                  ) : (
-                    <>
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                      Export CSV
-                    </>
-                  )}
+                  {isExporting ? "Exporting..." : "Export CSV"}
                 </button>
               )}
             </div>
@@ -358,7 +263,7 @@ const Users = () => {
 
                 <tbody className="divide-y">
                   {users.map((user) => {
-                    const permCount = countUserPermissions(user);
+                    // const permCount = countUserPermissions(user);
 
                     return (
                       <tr
@@ -383,51 +288,15 @@ const Users = () => {
                           <div className="space-y-3">
                             {/* Roles */}
                             <div>
-                              <div className="text-sm font-semibold text-slate-700 mb-2">
-                                Roles:
-                              </div>
                               <div className="flex flex-wrap gap-2">
                                 {user.roles.map((role, i) => (
                                   <span
                                     key={i}
-                                    className="px-3 py-1 text-xs rounded-full bg-slate-100 text-slate-700 font-medium"
+                                    className="px-3 py-2 text-xs rounded-lg bg-slate-100 text-slate-700 font-medium"
                                   >
                                     {role.name}
                                   </span>
                                 ))}
-                              </div>
-                            </div>
-
-                            {/* Permission Summary */}
-                            <div>
-                              <div className="text-sm font-semibold text-slate-700 mb-2">
-                                Access Summary:
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-indigo-600">
-                                    {permCount.modules}
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    Modules
-                                  </div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-emerald-600">
-                                    {permCount.actions}
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    Actions
-                                  </div>
-                                </div>
-                                <div className="text-center">
-                                  <div className="text-lg font-bold text-slate-900">
-                                    {user.roles.length}
-                                  </div>
-                                  <div className="text-xs text-slate-500">
-                                    Roles
-                                  </div>
-                                </div>
                               </div>
                             </div>
                           </div>
@@ -460,11 +329,7 @@ const Users = () => {
 
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            {(hasPermission("USER_EDIT") ||
-                              hasModulePermission(
-                                "UserManagement",
-                                "update",
-                              )) && (
+                            {hasModulePermission("UserManagement", "update") && (
                               <button
                                 onClick={() => setEditingUser(user)}
                                 className="px-4 py-2 rounded-lg text-indigo-600
@@ -474,11 +339,7 @@ const Users = () => {
                               </button>
                             )}
 
-                            {(hasPermission("USER_DELETE") ||
-                              hasModulePermission(
-                                "UserManagement",
-                                "delete",
-                              )) && (
+                            {hasModulePermission("UserManagement", "delete") && (
                               <button
                                 onClick={() => handleDelete(user._id)}
                                 className="px-4 py-2 rounded-lg text-rose-600
@@ -531,8 +392,7 @@ const Users = () => {
                   ? "Try adjusting your search or filters"
                   : "Create users to manage access to your system"}
               </p>
-              {(hasPermission("USER_CREATE") ||
-                hasModulePermission("UserManagement", "create")) && (
+              {hasModulePermission("UserManagement", "create") && (
                 <button
                   onClick={() => setEditingUser("create")}
                   className="px-6 py-3 rounded-xl bg-indigo-600 text-white

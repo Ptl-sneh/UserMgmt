@@ -7,7 +7,7 @@ import {
   updateRole,
   deleteRole,
 } from "../services/RoleService";
-import { hasPermission, hasModulePermission } from "../Components/Permissions";
+import { hasModulePermission } from "../Components/Permissions";
 
 const Roles = () => {
   const [roles, setRoles] = useState([]);
@@ -35,25 +35,15 @@ const Roles = () => {
   }, [page, search]);
 
   const handleCreate = async (data) => {
-    try {
-      await createRole(data);
-      setEditingRole(null);
-      loadRoles();
-    } catch (error) {
-      console.error("Error creating role:", error);
-      throw error;
-    }
+    await createRole(data);
+    setEditingRole(null);
+    loadRoles();
   };
 
   const handleUpdate = async (data) => {
-    try {
-      await updateRole(editingRole._id, data);
-      setEditingRole(null);
-      loadRoles();
-    } catch (error) {
-      console.error("Error updating role:", error);
-      throw error;
-    }
+    await updateRole(editingRole._id, data);
+    setEditingRole(null);
+    loadRoles();
   };
 
   const handleDelete = async (id) => {
@@ -68,22 +58,22 @@ const Roles = () => {
     }
   };
 
-  // Helper to count permissions in a role
+  // Helper to count permissions in a role (UI only)
   const countPermissions = (role) => {
-    if (!role.permissions || !Array.isArray(role.permissions))
+    if (!Array.isArray(role.permissions)) {
       return { modules: 0, actions: 0 };
+    }
 
     let actions = 0;
-
     role.permissions.forEach((module) => {
-      if (module.actions && Array.isArray(module.actions)) {
+      if (Array.isArray(module.actions)) {
         actions += module.actions.length;
       }
     });
 
     return {
       modules: role.permissions.length,
-      actions: actions,
+      actions,
     };
   };
 
@@ -100,8 +90,7 @@ const Roles = () => {
               </p>
             </div>
 
-            {(hasPermission("ROLE_CREATE") ||
-              hasModulePermission("RoleManagement", "create")) && (
+            {hasModulePermission("RoleManagement", "create") && (
               <button
                 onClick={() => setEditingRole({})}
                 className="px-5 py-3 rounded-xl bg-indigo-600 text-white
@@ -134,16 +123,12 @@ const Roles = () => {
           {/* Modal */}
           {editingRole && (
             <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
-              {/* Overlay */}
               <div
                 className="fixed inset-0 bg-black/50 backdrop-blur-sm"
                 onClick={() => setEditingRole(null)}
               />
-
-              {/* Modal Container */}
               <div className="relative w-full max-w-4xl my-10 mx-4 z-60">
                 <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-h-[90vh] overflow-hidden">
-                  {/* Scrollable Content */}
                   <div className="max-h-[90vh] overflow-y-auto">
                     <RoleForm
                       initialData={editingRole._id ? editingRole : null}
@@ -192,10 +177,7 @@ const Roles = () => {
                   {roles.map((role) => {
                     const permCount = countPermissions(role);
                     return (
-                      <tr
-                        key={role._id}
-                        className="hover:bg-slate-50 transition"
-                      >
+                      <tr key={role._id} className="hover:bg-slate-50 transition">
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">
                             {role.name}
@@ -206,44 +188,22 @@ const Roles = () => {
                         </td>
 
                         <td className="px-6 py-4">
-                          <div className="space-y-3">
-                            {/* Permission Summary */}
-                            <div className="flex items-center gap-4">
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-indigo-600">
-                                  {permCount.modules}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  Modules
-                                </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-indigo-600">
+                                {permCount.modules}
                               </div>
-                              <div className="text-center">
-                                <div className="text-lg font-bold text-emerald-600">
-                                  {permCount.actions}
-                                </div>
-                                <div className="text-xs text-slate-500">
-                                  Actions
-                                </div>
+                              <div className="text-xs text-slate-500">
+                                Modules
                               </div>
                             </div>
-
-                            {/* Module List */}
-                            <div className="flex flex-wrap gap-2 max-w-md">
-                              {role.permissions?.slice(0, 3).map((perm, i) => (
-                                <span
-                                  key={i}
-                                  className="px-3 py-1 text-xs rounded-full
-                                  bg-slate-100 text-slate-700 font-medium"
-                                  title={`Actions: ${perm.actions?.join(", ") || "None"}`}
-                                >
-                                  {perm.moduleName}
-                                </span>
-                              ))}
-                              {role.permissions?.length > 3 && (
-                                <span className="px-3 py-1 text-xs rounded-full bg-slate-200 text-slate-600 font-semibold">
-                                  +{role.permissions.length - 3} more
-                                </span>
-                              )}
+                            <div className="text-center">
+                              <div className="text-lg font-bold text-emerald-600">
+                                {permCount.actions}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                Actions
+                              </div>
                             </div>
                           </div>
                         </td>
@@ -275,11 +235,10 @@ const Roles = () => {
 
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            {(hasPermission("ROLE_EDIT") ||
-                              hasModulePermission(
-                                "RoleManagement",
-                                "update",
-                              )) && (
+                            {hasModulePermission(
+                              "RoleManagement",
+                              "update",
+                            ) && (
                               <button
                                 onClick={() => setEditingRole(role)}
                                 className="px-4 py-2 rounded-lg text-indigo-600
@@ -289,11 +248,10 @@ const Roles = () => {
                               </button>
                             )}
 
-                            {(hasPermission("ROLE_DELETE") ||
-                              hasModulePermission(
-                                "RoleManagement",
-                                "delete",
-                              )) && (
+                            {hasModulePermission(
+                              "RoleManagement",
+                              "delete",
+                            ) && (
                               <button
                                 onClick={() => handleDelete(role._id)}
                                 className="px-4 py-2 rounded-lg text-rose-600
@@ -309,63 +267,6 @@ const Roles = () => {
                   })}
                 </tbody>
               </table>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex justify-between items-center px-6 py-4 bg-slate-100">
-                  <span className="font-semibold text-slate-700">
-                    Page {page} of {totalPages}
-                  </span>
-                  <div className="flex gap-3">
-                    <button
-                      disabled={page === 1}
-                      onClick={() => setPage(page - 1)}
-                      className="px-4 py-2 rounded-lg border disabled:opacity-40 hover:bg-white transition"
-                    >
-                      Previous
-                    </button>
-                    <button
-                      disabled={page === totalPages}
-                      onClick={() => setPage(page + 1)}
-                      className="px-4 py-2 rounded-lg border disabled:opacity-40 hover:bg-white transition"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : !loading ? (
-            /* Empty State */
-            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-16 text-center max-w-2xl mx-auto">
-              <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                No roles found
-              </h3>
-              <p className="text-slate-500 mb-6">
-                Create roles to manage permissions across your system
-              </p>
-              <div className="mb-8">
-                <p className="text-sm text-slate-600 mb-4">
-                  With the new module-based system, you can:
-                </p>
-                <ul className="text-sm text-slate-600 space-y-2">
-                  <li>
-                    • Assign specific modules (UserManagement, RoleManagement,
-                    etc.)
-                  </li>
-                  <li>• Grant basic actions (create, read, update, delete)</li>
-                </ul>
-              </div>
-              {(hasPermission("ROLE_CREATE") ||
-                hasModulePermission("RoleManagement", "create")) && (
-                <button
-                  onClick={() => setEditingRole({})}
-                  className="px-6 py-3 rounded-xl bg-indigo-600 text-white
-                  font-semibold shadow-lg hover:bg-indigo-500 transition"
-                >
-                  Create First Role
-                </button>
-              )}
             </div>
           ) : null}
         </div>

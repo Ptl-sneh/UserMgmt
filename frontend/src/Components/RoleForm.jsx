@@ -365,9 +365,9 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                           <span className="text-sm font-medium text-slate-700 capitalize">
                             {entry.action}
                           </span>
-                          <span className="text-xs text-slate-500 ml-2">
+                          {/* <span className="text-xs text-slate-500 ml-2">
                             ({module.moduleName})
-                          </span>
+                          </span> */}
                         </div>
                       </label>
                     ))}

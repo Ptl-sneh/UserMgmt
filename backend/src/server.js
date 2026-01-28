@@ -8,7 +8,6 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
-const permissionRoutes = require('./routes/permissionRoutes');
 const moduleRoutes = require('./routes/moduleRoute'); 
 
 const app = express();
@@ -24,7 +23,6 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/permissions", permissionRoutes);
 app.use("/api/modules", moduleRoutes); 
 
 // Test route

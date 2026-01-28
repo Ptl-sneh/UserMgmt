@@ -1,5 +1,5 @@
 import { Navigate } from "react-router-dom";
-import { hasPermission, hasModulePermission } from "../Components/Permissions";
+import { hasModulePermission } from "../Components/Permissions";
 
 const ProRoute = ({ children, allowedRoles, requiredPermission }) => {
   const token = localStorage.getItem("token");
@@ -10,40 +10,19 @@ const ProRoute = ({ children, allowedRoles, requiredPermission }) => {
     return <Navigate to="/" replace />;
   }
 
-  // Role-based restriction
-  if (allowedRoles && !allowedRoles.some(role => user.roles?.includes(role))) {
+  // Role-based restriction (optional)
+  if (
+    allowedRoles &&
+    !allowedRoles.some((role) => user.roles?.includes(role))
+  ) {
     return <Navigate to="/home" replace />;
   }
 
-  // Permission-based restriction (both old and new system)
+  // Module-based permission restriction
   if (requiredPermission) {
-    // Check old permission system
-    const hasOldPermission = hasPermission(requiredPermission);
-    
-    // Map old permissions to new system for checking
-    const permissionMap = {
-      "USER_VIEW": { module: "UserManagement", action: "read" },
-      "USER_CREATE": { module: "UserManagement", action: "create" },
-      "USER_EDIT": { module: "UserManagement", action: "update" },
-      "USER_DELETE": { module: "UserManagement", action: "delete" },
-      "USER_EXPORT": { module: "UserManagement", action: "Export CSV" }, // In new schema, "Export CSV" is in actions array
-      "ROLE_VIEW": { module: "RoleManagement", action: "read" },
-      "ROLE_CREATE": { module: "RoleManagement", action: "create" },
-      "ROLE_EDIT": { module: "RoleManagement", action: "update" },
-      "ROLE_DELETE": { module: "RoleManagement", action: "delete" },
-      "PERMISSION_VIEW": { module: "PermissionManagement", action: "read" },
-      "DASHBOARD_VIEW": { module: "Dashboard", action: "view" },
-      "DASHBOARD_REFRESH": { module: "Dashboard", action: "refresh status" }
-    };
+    const { module, action } = requiredPermission;
 
-    let hasNewPermission = false;
-    if (permissionMap[requiredPermission]) {
-      const { module, action } = permissionMap[requiredPermission];
-      hasNewPermission = hasModulePermission(module, action);
-    }
-
-    // If user doesn't have permission in either system
-    if (!hasOldPermission && !hasNewPermission) {
+    if (!hasModulePermission(module, action)) {
       return <Navigate to="/home" replace />;
     }
   }

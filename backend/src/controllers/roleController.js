@@ -124,7 +124,7 @@ const getRoleById = async (req, res) => {
   }
 };
 
-/* ---------------- UPDATE ROLE ---------------- */
+/* UPDATE ROLE  */
 
 const updateRole = async (req, res) => {
   try {
@@ -184,7 +184,7 @@ const updateRole = async (req, res) => {
   }
 };
 
-/* ---------------- DELETE ROLE ---------------- */
+/* DELETE ROLE  */
 
 const deleteRole = async (req, res) => {
   try {
