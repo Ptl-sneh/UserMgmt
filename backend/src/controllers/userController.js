@@ -3,6 +3,9 @@ const Role = require("../models/Role");
 const bcrypt = require("bcryptjs");
 const { Parser } = require("json2csv");
 const mongoose = require("mongoose");
+const fs = require("fs");
+const path = require("path");
+const upload = require('../config/multer')
 
 // Validation helper function
 const validateUserData = (data, isUpdate = false) => {
@@ -364,108 +367,121 @@ const deleteUser = async (req, res) => {
   }
 };
 
-// EXPORT USERS (CSV)
-const exportUsers = async (req, res) => {
-  try {
-    // Apply same filters as getUsers for consistency
-    const search = req.query.search || "";
-    const statusFilter = req.query.status || "";
+// const exportUsers = async (req, res) => {
+//   try {
+//     const search = req.query.search || "";
+//     const statusFilter = req.query.status || "";
 
-    // Build match conditions
-    const matchConditions = {
-      isDeleted: false,
-    };
+//     // Build match conditions
+//     const matchConditions = {
+//       isDeleted: false,
+//     };
 
-    // Add search condition
-    if (search) {
-      matchConditions.$or = [
-        { name: { $regex: search, $options: "i" } },
-        { email: { $regex: search, $options: "i" } },
-      ];
-    }
+//     if (search) {
+//       matchConditions.$or = [
+//         { name: { $regex: search, $options: "i" } },
+//         { email: { $regex: search, $options: "i" } },
+//       ];
+//     }
 
-    // Add status filter
-    if (statusFilter && statusFilter.toLowerCase() !== "all") {
-      matchConditions.status = statusFilter;
-    }
+//     if (statusFilter && statusFilter.toLowerCase() !== "all") {
+//       matchConditions.status = statusFilter;
+//     }
 
-    // Aggregation pipeline
-    const pipeline = [
-      // Stage 1: Match documents based on filters
-      {
-        $match: matchConditions,
-      },
-      // Stage 2: Lookup roles from roles collection
-      {
-        $lookup: {
-          from: "roles",
-          localField: "roles",
-          foreignField: "_id",
-          as: "roleDetails",
-        },
-      },
-      // Stage 3: Unwind to get first role (for CSV, we might want just one role shown)
-      {
-        $unwind: {
-          path: "$roleDetails",
-          preserveNullAndEmptyArrays: true,
-        },
-      },
-      // Stage 4: Project and transform data for CSV
-      {
-        $project: {
-          name: 1,
-          email: 1,
-          status: 1,
-          createdAt: 1,
-          hobbies: { $toString: "$hobbies" }, // Convert array to string
-          roleName: "$roleDetails.name",
-        },
-      },
-      // Stage 5: Add formatted fields for CSV
-      {
-        $addFields: {
-          createdAtFormatted: {
-            $dateToString: {
-              format: "%m/%d/%Y",
-              date: "$createdAt",
-            },
-          },
-        },
-      },
-      // Stage 6: Final projection for CSV format
-      {
-        $project: {
-          name: 1,
-          email: 1,
-          status: 1,
-          hobbies: 1,
-          role: "$roleName",
-          createdAt: "$createdAtFormatted",
-        },
-      },
-    ];
+//     // Get users with roles
+//     const users = await User.find(matchConditions)
+//       .populate({
+//         path: 'roles',
+//         select: 'name',
+//         match: { isDeleted: false }
+//       })
+//       .lean();
 
-    // Execute aggregation
-    const users = await User.aggregate(pipeline);
+//     // Format data for CSV
+//     const formattedUsers = users.map(user => ({
+//       "Full Name": user.name,
+//       "Email": user.email,
+//       "Status": user.status,
+//       "Roles": user.roles?.map(role => role.name).join(', ') || 'No Roles',
+//       "Hobbies": Array.isArray(user.hobbies) ? user.hobbies.join(', ') : '',
+//       "Created Date": new Date(user.createdAt).toLocaleDateString(),
+//       "Last Updated": new Date(user.updatedAt).toLocaleDateString()
+//     }));
 
-    // Generate CSV
-    const parser = new Parser({
-      fields: ["name", "email", "status", "hobbies", "role", "createdAt"],
-    });
-    const csv = parser.parse(users);
+//     // Generate CSV
+//     const parser = new Parser({
+//       fields: ["Full Name", "Email", "Status", "Roles", "Hobbies", "Created Date", "Last Updated"]
+//     });
+//     const csv = parser.parse(formattedUsers);
 
-    // Set headers for file download
-    res.header("Content-Type", "text/csv");
-    res.header("Content-Disposition", "attachment; filename=users.csv");
+//     // Generate unique filename
+//     const timestamp = Date.now();
+//     const filename = `users_export_${timestamp}.csv`;
+    
+//     // Use Multer to save the file
+//     const exportDir = path.join(__dirname, '..', '..', 'exports');
+    
+//     // Ensure directory exists
+//     if (!fs.existsSync(exportDir)) {
+//       fs.mkdirSync(exportDir, { recursive: true });
+//     }
+    
+//     // Save file using fs (Multer doesn't work well with generated files)
+//     const filePath = path.join(exportDir, filename);
+//     fs.writeFileSync(filePath, csv);
 
-    // Send CSV data
-    res.send(csv);
-  } catch (error) {
-    console.error("Export users error:", error);
-    res.status(500).json({ message: "Server error while exporting" });
-  }
-};
+//     // Create download URL
+//     const downloadUrl = `/api/users/download/${filename}`;
+
+//     // Return the URL
+//     res.json({
+//       success: true,
+//       message: "CSV exported successfully",
+//       downloadUrl: downloadUrl,
+//       filename: filename,
+//       recordCount: users.length,
+//       fullPath: filePath  // For debugging
+//     });
+
+//   } catch (error) {
+//     console.error("Export users error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error exporting users",
+//       error: error.message
+//     });
+//   }
+// };
+
+// const downloadFile = async (req, res) => {
+//   try {
+//     const filename = req.params.filename;
+//     const exportDir = path.join(__dirname, '..', '..', 'exports');
+//     const filePath = path.join(exportDir, filename);
+
+//     // Check if file exists
+//     if (!fs.existsSync(filePath)) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "File not found"
+//       });
+//     }
+
+//     // Set headers for file download
+//     res.setHeader('Content-Type', 'text/csv');
+//     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+//     // Send the file
+//     res.sendFile(filePath);
+
+//   } catch (error) {
+//     console.error("Download error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error downloading file"
+//     });
+//   }
+// };
 
 module.exports = {
   createUser,
@@ -473,5 +489,6 @@ module.exports = {
   getUserById,
   updateUser,
   deleteUser,
-  exportUsers,
+  // exportUsers,
+  // downloadFile
 };

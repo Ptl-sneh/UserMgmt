@@ -62,26 +62,38 @@ const Users = () => {
   };
 
   const handleExport = async () => {
-    try {
-      setIsExporting(true);
-      const res = await exportUsers({
-        search,
-        status: statusFilter,
-      });
+  try {
+    setIsExporting(true);
+    
+    // Call the export API
+    const result = await exportUsers({
+      search,
+      status: statusFilter,
+    });
 
-      const url = window.URL.createObjectURL(res.data);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "users.csv";
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("Error exporting users:", error);
-      alert("Failed to export users");
-    } finally {
-      setIsExporting(false);
+    // Check if we got a response
+    if (result.success && result.downloadUrl) {
+      console.log("Export successful:", result);
+      
+      // Create full download URL
+      const fullUrl = `${window.location.origin}${result.downloadUrl}`;
+      
+      window.location.href = fullUrl;
+
+      setTimeout(() => {
+        alert(`✅ Successfully exported ${result.recordCount} users!`);
+      }, 1000);
+      
+    } else {
+      alert(`Export failed: ${result.message || 'Unknown error'}`);
     }
-  };
+  } catch (error) {
+    console.error("Error exporting users:", error);
+    alert("Failed to export users. Please try again.");
+  } finally {
+    setIsExporting(false);
+  }
+};
 
   const handleCreate = async (data) => {
     await createUser(data);

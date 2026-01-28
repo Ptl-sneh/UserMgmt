@@ -1,8 +1,10 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const path = require("path")
 
 dotenv.config();
+
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
@@ -11,6 +13,7 @@ const userRoutes = require("./routes/userRoutes");
 const moduleRoutes = require('./routes/moduleRoute'); 
 
 const app = express();
+app.use('/exports', express.static(path.join(__dirname, '../exports')));
 
 // Connect Database
 connectDB();
