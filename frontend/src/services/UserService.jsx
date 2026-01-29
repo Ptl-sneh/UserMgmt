@@ -23,5 +23,4 @@ export const exportUsers = (params) =>
   axios.get(`${API_URL}/export`, {
     ...getAuthHeader(),
     params,
-    responseType: "blob",
   });

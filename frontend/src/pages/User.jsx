@@ -62,38 +62,42 @@ const Users = () => {
   };
 
   const handleExport = async () => {
-  try {
-    setIsExporting(true);
-    
-    // Call the export API
-    const result = await exportUsers({
-      search,
-      status: statusFilter,
-    });
+    try {
+      setIsExporting(true);
 
-    // Check if we got a response
-    if (result.success && result.downloadUrl) {
-      console.log("Export successful:", result);
-      
-      // Create full download URL
-      const fullUrl = `${window.location.origin}${result.downloadUrl}`;
-      
-      window.location.href = fullUrl;
+      // Call the export API - this now returns JSON with downloadUrl
+      const response = await exportUsers({
+        search,
+        status: statusFilter,
+      });
 
-      setTimeout(() => {
+      // Access the data from axios response
+      const result = response.data;
+
+      // Check if we got a successful response
+      if (result.success && result.downloadUrl) {
+        console.log("Export successful:", result);
+
+        // Create a temporary link element to trigger download
+        const link = document.createElement("a");
+        link.href = result.downloadUrl;
+        link.download = result.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Show success message
         alert(`✅ Successfully exported ${result.recordCount} users!`);
-      }, 1000);
-      
-    } else {
-      alert(`Export failed: ${result.message || 'Unknown error'}`);
+      } else {
+        alert(`Export failed: ${result.message || "Unknown error"}`);
+      }
+    } catch (error) {
+      console.error("Error exporting users:", error);
+      alert("Failed to export users. Please try again.");
+    } finally {
+      setIsExporting(false);
     }
-  } catch (error) {
-    console.error("Error exporting users:", error);
-    alert("Failed to export users. Please try again.");
-  } finally {
-    setIsExporting(false);
-  }
-};
+  };
 
   const handleCreate = async (data) => {
     await createUser(data);
@@ -106,7 +110,7 @@ const Users = () => {
     setEditingUser(null);
     loadUsers();
   };
-  
+
   useEffect(() => {
     document.body.style.overflow = editingUser ? "hidden" : "unset";
     return () => {
@@ -341,7 +345,10 @@ const Users = () => {
 
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
-                            {hasModulePermission("UserManagement", "update") && (
+                            {hasModulePermission(
+                              "UserManagement",
+                              "update",
+                            ) && (
                               <button
                                 onClick={() => setEditingUser(user)}
                                 className="px-4 py-2 rounded-lg text-indigo-600
@@ -351,7 +358,10 @@ const Users = () => {
                               </button>
                             )}
 
-                            {hasModulePermission("UserManagement", "delete") && (
+                            {hasModulePermission(
+                              "UserManagement",
+                              "delete",
+                            ) && (
                               <button
                                 onClick={() => handleDelete(user._id)}
                                 className="px-4 py-2 rounded-lg text-rose-600
