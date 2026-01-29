@@ -5,6 +5,7 @@ const { Parser } = require("json2csv");
 
 const exportUsers = async (req, res) => {
   try {
+    console.log(req.query)
     const search = req.query.search || "";
     const statusFilter = req.query.status || "";
 
@@ -71,12 +72,12 @@ const exportUsers = async (req, res) => {
       fs.mkdirSync(exportDir, { recursive: true });
     }
 
-    // Save file to disk storage (like multer would)
+    // Save file to disk storage
     const filePath = path.join(exportDir, filename);
     fs.writeFileSync(filePath, csv);
 
     // Create download URL that matches your static route in server.js
-    const downloadUrl = `/exports/${filename}`;
+    const downloadUrl = `${req.protocol}://${req.host}/exports/${filename}`;
 
     // Return JSON response with download URL
     res.json({
@@ -96,37 +97,6 @@ const exportUsers = async (req, res) => {
   }
 };
 
-// const downloadFile = async (req, res) => {
-//   try {
-//     const filename = req.params.filename;
-//     const backendRoot = path.resolve(__dirname, "..", "..");
-//     const exportDir = path.join(backendRoot, "exports");
-//     const filePath = path.join(exportDir, filename);
-
-//     // Check if file exists
-//     if (!fs.existsSync(filePath)) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "File not found",
-//       });
-//     }
-
-//     // Set headers for file download
-//     res.setHeader("Content-Type", "text/csv");
-//     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-
-//     // Send the file
-//     res.sendFile(filePath);
-//   } catch (error) {
-//     console.error("Download error:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error downloading file",
-//     });
-//   }
-// };
-
 module.exports = {
   exportUsers,
-  // downloadFile,
 };

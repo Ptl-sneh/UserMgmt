@@ -11,6 +11,7 @@ const authRoutes = require("./routes/authRoutes");
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
 const moduleRoutes = require('./routes/moduleRoute'); 
+const uploadRoutes = require('./routes/uploadRoutes')
 
 const app = express();
 app.use('/exports', express.static(path.join(__dirname, '../exports')));
@@ -26,7 +27,8 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/users", userRoutes);
-app.use("/api/modules", moduleRoutes); 
+app.use("/api/modules", moduleRoutes);
+app.use("/api/upload",uploadRoutes) 
 
 // Test route
 app.get("/", (req, res) => {
