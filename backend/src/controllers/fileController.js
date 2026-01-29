@@ -14,8 +14,8 @@ const uploadFiles = async (req, res) => {
     fs.mkdirSync(config.uploadPath, { recursive: true });
 
     const storage = multer.diskStorage({
-      destination: (_, __, cb) => cb(null, config.uploadPath),
-      filename: (_, file, cb) => {
+      destination: (req, file, cb) => cb(null, config.uploadPath),
+      filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
         const name = path.basename(file.originalname, ext);
         cb(null, `${name}-${Date.now()}${ext}`);
@@ -25,7 +25,7 @@ const uploadFiles = async (req, res) => {
     const upload = multer({
       storage,
       limits: { fileSize: config.maxFileSize },
-      fileFilter: (_, file, cb) =>
+      fileFilter: (req, file, cb) =>
         config.allowedMimeTypes.includes(file.mimetype)
           ? cb(null, true)
           : cb(new Error('File type not allowed'))
