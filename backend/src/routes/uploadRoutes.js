@@ -1,8 +1,13 @@
-const express = require('express')
-const router = express.Router()
+const express = require('express');
+const router = express.Router();
 
-const {uploadFiles} = require('../controllers/fileController')
+const { 
+  uploadFiles
+} = require('../controllers/fileController');
 
-router.post('/file',uploadFiles)
+const protect = require('../middlewares/authMiddleware');
 
-module.exports = router
+// Upload file - requires appropriate permission
+router.post('/file', protect, uploadFiles);
+
+module.exports = router;
