@@ -6,8 +6,10 @@ import {
   exportUsers,
   createUser,
   updateUser,
+  uploadFile,
 } from "../services/UserService";
 import UserForm from "../Components/UserForm";
+import FileUploadModal from "../Components/UploadFileModal";
 import { hasModulePermission } from "../Components/Permissions";
 
 const Users = () => {
@@ -21,6 +23,7 @@ const Users = () => {
   const [sortOrder, setSortOrder] = useState("desc");
   const [isExporting, setIsExporting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -99,6 +102,17 @@ const Users = () => {
     }
   };
 
+  const handleFileUpload = async (file) => {
+    try {
+      const response = await uploadFile(file);
+      console.log("Upload successful:", response.data);
+      alert(`✅ File uploaded successfully: ${response.data.file.filename}`);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      throw error;
+    }
+  };
+
   const handleCreate = async (data) => {
     await createUser(data);
     setEditingUser(null);
@@ -108,15 +122,15 @@ const Users = () => {
   const handleUpdate = async (data) => {
     await updateUser(editingUser._id, data);
     setEditingUser(null);
-    loadUsers();
+    loadRoles();
   };
 
   useEffect(() => {
-    document.body.style.overflow = editingUser ? "hidden" : "unset";
+    document.body.style.overflow = editingUser || showUploadModal ? "hidden" : "unset";
     return () => {
       document.body.style.overflow = "unset";
     };
-  }, [editingUser]);
+  }, [editingUser, showUploadModal]);
 
   return (
     <AdminLayout>
@@ -155,6 +169,31 @@ const Users = () => {
                   disabled:opacity-50"
                 >
                   {isExporting ? "Exporting..." : "Export CSV"}
+                </button>
+              )}
+
+              {hasModulePermission("UserManagement", "upload file") && (
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
+                  bg-purple-600 text-white font-semibold
+                  hover:bg-purple-500 hover:scale-[1.02]
+                  shadow-lg shadow-purple-600/25 transition"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                  Upload File
                 </button>
               )}
             </div>
@@ -221,7 +260,15 @@ const Users = () => {
             </div>
           )}
 
-          {/* Modal */}
+          {/* Upload Modal */}
+          {showUploadModal && (
+            <FileUploadModal
+              onClose={() => setShowUploadModal(false)}
+              onUpload={handleFileUpload}
+            />
+          )}
+
+          {/* User Form Modal */}
           {editingUser && (
             <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4">
               {/* Overlay */}
@@ -279,8 +326,6 @@ const Users = () => {
 
                 <tbody className="divide-y">
                   {users.map((user) => {
-                    // const permCount = countUserPermissions(user);
-
                     return (
                       <tr
                         key={user._id}

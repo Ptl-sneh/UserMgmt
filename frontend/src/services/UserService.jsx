@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/users";
+const UPLOAD_URL = "http://localhost:5000/api/upload";
 
 const getAuthHeader = () => ({
   headers: {
@@ -24,3 +25,10 @@ export const exportUsers = (params) =>
     ...getAuthHeader(),
     params,
   });
+
+export const uploadFile = (file) => {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  return axios.post(`${UPLOAD_URL}/file`, formData, {getAuthHeader,"Content-Type": "multipart/form-data"});
+};
