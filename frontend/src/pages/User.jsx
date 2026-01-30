@@ -152,7 +152,7 @@ const Users = () => {
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
                   bg-indigo-600 text-white font-semibold
                   hover:bg-indigo-500 hover:scale-[1.02]
-                  shadow-lg shadow-indigo-600/25 transition"
+                  shadow-lg shadow-indigo-600/25 transition cursor-pointer"
                 >
                   Add User
                 </button>
@@ -166,7 +166,7 @@ const Users = () => {
                   bg-emerald-500 text-white font-semibold
                   hover:bg-emerald-400 hover:scale-[1.02]
                   shadow-lg shadow-emerald-500/25 transition
-                  disabled:opacity-50"
+                  disabled:opacity-50 cursor-pointer"
                 >
                   {isExporting ? "Exporting..." : "Export CSV"}
                 </button>
@@ -178,7 +178,7 @@ const Users = () => {
                   className="inline-flex items-center gap-2 px-5 py-3 rounded-xl
                   bg-purple-600 text-white font-semibold
                   hover:bg-purple-500 hover:scale-[1.02]
-                  shadow-lg shadow-purple-600/25 transition"
+                  shadow-lg shadow-purple-600/25 transition cursor-pointer"
                 >
                   <svg
                     className="w-5 h-5"
@@ -218,7 +218,7 @@ const Users = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
               focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
-              transition font-semibold"
+              transition font-semibold cursor-pointer"
               disabled={loading}
             >
               <option value="">All Users</option>
@@ -231,7 +231,7 @@ const Users = () => {
               onChange={(e) => setSortBy(e.target.value)}
               className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
               focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500
-              transition font-semibold"
+              transition font-semibold cursor-pointer"
               disabled={loading}
             >
               <option value="createdAt">Created Date</option>
@@ -245,7 +245,7 @@ const Users = () => {
                 setSortOrder(sortOrder === "desc" ? "asc" : "desc")
               }
               className="px-5 py-4 rounded-2xl border border-slate-200 bg-white
-              hover:bg-slate-50 font-semibold transition disabled:opacity-50"
+              hover:bg-slate-50 font-semibold transition disabled:opacity-50 cursor-pointer"
               disabled={loading}
             >
               {sortOrder === "desc" ? "↓ Desc" : "↑ Asc"}
@@ -397,7 +397,7 @@ const Users = () => {
                               <button
                                 onClick={() => setEditingUser(user)}
                                 className="px-4 py-2 rounded-lg text-indigo-600
-                                bg-indigo-50 hover:bg-indigo-100 font-semibold transition"
+                                bg-indigo-50 hover:bg-indigo-100 cursor-pointer font-semibold transition"
                               >
                                 Edit
                               </button>
@@ -410,7 +410,7 @@ const Users = () => {
                               <button
                                 onClick={() => handleDelete(user._id)}
                                 className="px-4 py-2 rounded-lg text-rose-600
-                                bg-rose-50 hover:bg-rose-100 font-semibold transition"
+                                bg-rose-50 hover:bg-rose-100 cursor-pointer font-semibold transition"
                               >
                                 Delete
                               </button>

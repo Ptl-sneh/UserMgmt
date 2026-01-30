@@ -338,18 +338,18 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                     <button
                       type="button"
                       onClick={(e) => toggleAllPermissions(module.moduleName, e)}
-                      className="text-sm text-indigo-600 hover:text-indigo-500 font-medium"
+                      className="text-sm text-indigo-600 hover:text-indigo-500 cursor-pointer font-medium"
                     >
                       {isModuleFullySelected ? "Deselect All" : "Select All"}
                     </button>
                   </div>
 
                   {/* Module Permissions */}
-                  <div className="space-y-3">
+                  <div className="items-center gap-3 grid grid-cols-4">
                     {module.entries.map((entry) => (
                       <label
                         key={entry._id}
-                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition ${
+                        className={`flex items-center justify-center gap-3 w-45 p-3 rounded-xl border cursor-pointer transition ${
                           isPermissionSelected(entry._id)
                             ? "border-indigo-300 bg-indigo-50"
                             : "border-slate-200 hover:border-slate-300"
@@ -365,9 +365,6 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
                           <span className="text-sm font-medium text-slate-700 capitalize">
                             {entry.action}
                           </span>
-                          {/* <span className="text-xs text-slate-500 ml-2">
-                            ({module.moduleName})
-                          </span> */}
                         </div>
                       </label>
                     ))}
@@ -452,7 +449,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
           <button
             type="submit"
             className="flex-1 py-3 rounded-xl bg-indigo-600 text-white
-            font-semibold shadow-lg hover:bg-indigo-500 transition"
+            font-semibold shadow-lg hover:bg-indigo-500 cursor-pointer transition"
           >
             {initialData ? "Update Role" : "Create Role"}
           </button>
@@ -460,7 +457,7 @@ const RoleForm = ({ initialData, onSubmit, onCancel }) => {
             type="button"
             onClick={onCancel}
             className="flex-1 py-3 rounded-xl border border-slate-300
-            text-slate-700 font-semibold hover:bg-slate-50 transition"
+            text-slate-700 font-semibold hover:bg-slate-50 cursor-pointer transition"
           >
             Cancel
           </button>

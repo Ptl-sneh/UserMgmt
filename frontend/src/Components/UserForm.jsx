@@ -70,7 +70,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     { value: "reading", label: "Reading" },
   ];
 
-  /* ================= EFFECTS ================= */
+  /* EFFECTS */
   useEffect(() => {
     if (initialData && initialData._id) {
       // Get first role if multiple exist (for backward compatibility)
@@ -112,7 +112,7 @@ const UserForm = ({ initialData, onSubmit, onCancel }) => {
     loadRoles();
   }, []);
 
-  /* ================= HANDLERS ================= */
+  /* HANDLERS */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });

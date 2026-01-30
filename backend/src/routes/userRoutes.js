@@ -23,8 +23,6 @@ router.get("/", protect, checkPermission("UserManagement", "read"), getUsers);
 // Export users CSV - requires Export CSV action on UserManagement module
 router.get("/export", protect, checkPermission("UserManagement", "Export CSV"), exportUsers);
 
-// router.get("/download/:filename", protect, downloadFile);
-
 // Get user by ID - requires read permission on UserManagement module
 router.get("/:id", protect, checkPermission("UserManagement", "read"), getUserById);
 

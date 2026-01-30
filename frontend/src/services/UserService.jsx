@@ -30,5 +30,9 @@ export const uploadFile = (file) => {
   const formData = new FormData();
   formData.append("file", file);
 
-  return axios.post(`${UPLOAD_URL}/file`, formData, {getAuthHeader,"Content-Type": "multipart/form-data"});
+  return axios.post(`${UPLOAD_URL}/file`, formData, getAuthHeader(), {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 };
